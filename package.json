@@ -11,7 +11,7 @@
     "design-qa"
   ],
   "exports": {
-    ".": "./lib/index.mjs",
+    ".": "./lib/index.js",
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./skills/*": "./skills/*"
   },
@@ -50,7 +50,7 @@
     "url": "https://github.com/sunxin-ai/dsh-deepseek-vision/issues"
   },
   "homepage": "https://github.com/sunxin-ai/dsh-deepseek-vision#readme",
-  "main": "./lib/index.mjs",
+  "main": "./lib/index.js",
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"

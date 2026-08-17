@@ -1,15 +1,21 @@
 # dsh-deepseek-vision
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 **让 DeepSeek Harness 里的纯文本模型能看图。**
 
-- **短期弥补 DeepSeek 的能力缺口。** DSH 的图像通路本已完整，缺的只是一条声明了多模态的路由。官方多模态上线那天，本插件自动让位、可原样留着。
-  （**要在对话框里直接粘贴图片，需给 DSH 本体打两处补丁** —— 那道拦截在 `api-proxy` 里，插件够不着。装的时候加 `--with-patches` 即可，一条命令的事。）
-- **把识图做成一个 tool。** 图片不进主模型上下文；它看到一行 `[图片 …]` 提示，需要时自己调 `deepseek_vision`。不看就不产生任何成本，问什么由模型自己决定。
-- **附完整 eval，可自测。** 4 组夹具、23 处注入缺陷、四条通过线。换模型后重跑一遍就知道能不能用 —— 生态里同类插件没人提供这个。
+- **补上 DeepSeek 的能力缺口。** DSH 的图像通路本已完整，缺的只是一条声明了多模态的路由。
+  官方多模态上线那天，本插件自动让位、可原样留着。
+- **把识图做成一个 tool。** 图片不进主模型上下文；它看到一行 `[图片 …]` 提示，需要时自己调
+  `deepseek_vision`。不看就不产生任何成本，问什么由模型自己决定。
+- **附完整 eval，可自测。** 4 组夹具、23 处注入缺陷、四条通过线。换模型后重跑一遍就知道能不能用。
 
 ---
 
 ## 三步装好
+
+**环境要求**：一个能跑起来的 DSH（npm 安装或源码运行都可以），Node `^22.19 || >=24`（与 DSH 一致）。
+macOS / Linux / Windows 通用，安装脚本是一份 Node 实现。
 
 ### 1. 拿一个百炼 API Key
 
@@ -29,20 +35,39 @@ dsh plugin --profile web add github:sunxin-ai/dsh-deepseek-vision
 ```sh
 cd "${DSH_HOME:-$HOME/.dsh}/profiles/web/node_modules/dsh-deepseek-vision"
 export BAILIAN_API_KEY=<第 1 步拿到的 key>
-DSH_REPO=<DSH 源码仓库根> node install.mjs --route-only --with-patches
+node install.mjs --route-only
 node install.mjs --restart          # 冷启动。HMR 是关的，刷新浏览器不算
 ```
 
 装好了。**在对话框里粘一张图，直接问「这是啥」即可。**
 
-`--with-patches` 会给 DSH 本体打两处补丁，这是「粘贴图片」唯一的实现方式 ——
-那道拦截在 `api-proxy` 的消息准入里，插件够不着（`resolveModelInfo` 直接返回适配器自述，
-没有 waterfall，改不了 `llm-deepseek` 硬编码的 `inputModalities: ['text']`）。
-补丁很小、幂等、可一键还原，详见 [`patches/README.md`](patches/README.md)。
+不需要告诉脚本 DSH 装在哪 —— 它从 profile 的 `node_modules` 自己解析出本体位置，
+npm 装的和源码跑的都认。密钥也不经它的手，只写变量名 `apiKeyEnv: BAILIAN_API_KEY`。
 
-> **不想改本体？** 去掉 `DSH_REPO=... --with-patches`，只跑 `node install.mjs --route-only`。
-> 此时粘贴仍会被拒，但**给文件路径、图片 URL 或附件 id 让模型调 `deepseek_vision` 一样可用** ——
-> 只是多贴一次路径。
+<details>
+<summary>第 3 步顺带改了 DSH 本体两处 —— 点开看改了什么、怎么还原</summary>
+
+「在对话框里粘贴图片」这件事插件自己做不到：拦截在 `api-proxy` 的消息准入里，
+而 `resolveModelInfo` 直接返回适配器自述、没有 waterfall，插件改不了 `llm-deepseek`
+硬编码的 `inputModalities: ['text']`。所以只能改本体，两处：
+
+| 落点 | 改动 |
+|---|---|
+| `dsh-host-apiproxy` | 删掉纯文本路由的图片准入拒绝（一个 `if` 块） |
+| `dsh-llm-deepseek` | 序列化前把图片块换成一行 `[图片 … attachment=<id>]` 文字指针，不再抛错 |
+
+改动前原文另存为 `<原文件名>.dsh-vision-orig`，一条命令还原：
+
+```sh
+node install.mjs --revert-patches
+```
+
+**完全不想动本体**就加 `--no-patches`。此时粘贴仍会被拒，但**给文件路径、图片 URL
+或附件 id 让模型调 `deepseek_vision` 一样可用** —— 只是多贴一次路径。
+
+细节见 [`patches/README.md`](patches/README.md)。
+
+</details>
 
 ### 让 DSH 自己装
 
@@ -53,8 +78,11 @@ node install.mjs --restart          # 冷启动。HMR 是关的，刷新浏览�
 
 1. dsh plugin --profile web add github:sunxin-ai/dsh-deepseek-vision
 2. cd "${DSH_HOME:-$HOME/.dsh}/profiles/web/node_modules/dsh-deepseek-vision"
-3. BAILIAN_API_KEY=<你的 key> DSH_REPO=<DSH 源码仓库根> node install.mjs --route-only --with-patches
+3. BAILIAN_API_KEY=<你的 key> node install.mjs --route-only
 4. node install.mjs --restart      # 不要用 pkill，那会杀掉你自己
+
+第 3 步会顺带改 DSH 本体两处（粘贴图片必须的），原文自动备份，
+node install.mjs --revert-patches 可一键还原。把第 3 步的完整输出贴回给我。
 ```
 
 **「不要自己发挥」这句请保留。** 三处最容易被自由发挥搞砸：
@@ -62,20 +90,13 @@ node install.mjs --restart          # 冷启动。HMR 是关的，刷新浏览�
 - **漏掉 `--route-only`** —— 会写进一条与 bundle 重复的插件行，DSH 启动直接抛
   `duplicate loader entry id`，**整个 profile 起不来**。脚本内置了防护会跳过，但不是所有 agent 都读得懂提示。
 - **自己 `pkill` 重启** —— agent 通常就跑在那个要被重启的进程里，杀掉等于自杀，
-  它拿不到结果也无法确认是否成功；实测有 agent 在「杀了自己怎么办」上耗掉数分钟。
-  `--restart` 立即返回，重启在它身后完成。
+  它拿不到结果也无法确认是否成功。`--restart` 立即返回，重启在它身后完成。
 - **自己编一个 key** —— 脚本不代经手密钥，自检会明确报缺少 `BAILIAN_API_KEY`，它应当回来向你要。
-- **漏掉 `--with-patches` 或 `DSH_REPO`** —— 装完粘贴图片仍会被拒。不带 `DSH_REPO` 时脚本
-  只会打印「已跳过」而**不报错**，容易被当成装好了。
+
+脚本任何一步没做成都会**打印 `✗` 并以非零码退出**，所以让它把第 3 步的输出原样贴回来就能验收。
 
 > DSH 的自修改工具（`cordis_define` / `cordis_run`）**不能**用来做持久安装 ——
 > 那套是内存态的：不产生插件文件、不改 `cordis.yml`、重启即消失。持久安装必须落到文件，所以走上面这条。
-
-> **想在对话框里直接粘贴图片**，还需要给 DSH 本体打两处补丁：
-> `DSH_REPO=<DSH 源码仓库根> node install.mjs --route-only --with-patches`
-> 详见 [`patches/README.md`](patches/README.md)。不打也能用，只是要给路径而不是粘贴。
-
-**换成别家的多模态模型**：改两处配置即可，见下方[换成别的模型](#换成别的模型)。
 
 ---
 
@@ -115,7 +136,7 @@ llm-pi-ai:
 # 2) profile 的 cordis.patch.yml —— 指过去
 - insert:
     - id: deepseek-vision
-      name: '<本目录>/src/index.ts'
+      name: dsh-deepseek-vision
       config:
         provider: my-vision
         model: your-model-id
@@ -127,6 +148,56 @@ llm-pi-ai:
 
 换模型后建议用 [`eval/`](eval/README.md) 重跑一遍基准，尤其看难档与零差异对照那两项：
 **能看见 ≠ 可用**，一个召回高但幻觉多、或每次结论都漂移的模型会让判定循环发散。
+
+## 工具
+
+### `deepseek_vision(image_path, question)`
+
+看一张图并回答问题。`image_path` 三选一：
+
+- 文件绝对路径
+- **http(s) 图片地址** —— 文档、网页里的图直接传 URL
+- 上下文 `[图片 …]` 提示里的附件 id（`attachment=<id>` 或裸 id 都行）
+
+调用方**自己就是多模态模型时会被拒绝** —— 它直接看更准也更省，绕一手转述反而丢信息。
+这同时是官方多模态上线时的自动让位机制：DeepSeek 声明 `image` 那天，本工具自己退出。
+
+### 配置
+
+| 字段 | 默认 | 说明 |
+|---|---|---|
+| `provider` | `bailian` | 识图路由名，须声明 `input: [text, image]` |
+| `model` | `qwen3.8-max` | 识图模型 |
+| `maxTokens` | `4000` | 单次识图输出上限 |
+| `reasoningEffort` | `off` | 读数式提问不需要思维链 |
+
+## 提问方式决定成败
+
+以下是实测结论，不是风格偏好。完整版在 [`skills/deepseek-vision/SKILL.md`](skills/deepseek-vision/SKILL.md)。
+
+| 提问形式 | 零差异对照的幻觉 | 难档缺陷召回 |
+|---|---|---|
+| 「你自己找差异」 | 0/30 | 0/2 |
+| 「这个方面有区别吗」 | 0/30 | 0/2 —— 判定题，模型默认答否 |
+| 「哪个更大」 | 0/36 | 1/2 —— 留白类被系统性答反 3/3 |
+| **「各自是多少」** | **0/12** | **2/2** |
+
+同一个模型、同一批图，**召回从 0/2 走到 2/2，幻觉全程为 0**。换的只是问法。
+
+**读数方向可信，量级不可信**：字重真值 800/500 读作 800/700，间距 80/25 读作 72/38 ——
+被测侧总被拉向参照侧。用它判断「有没有差异、往哪个方向」，不要当测量值；
+实现侧的精确值用 `getComputedStyle` 或像素测量取得。
+
+## 成本
+
+图像 token ≈ 像素数 / 1024（实测 1023–1127 px/token，与长宽比无关）。
+
+| | 均值 | 区间 |
+|---|---|---|
+| 单次判定 | 0.037 元 | 0.027 – 0.051 元 |
+| 延迟 | 9.0s | 6.6 – 11.6s |
+
+**看一次图约 4 分钱。** 单价按 12 元/百万输入、36 元/百万输出估算，上线前请在控制台核对。
 
 ## 它什么时候该退休
 
@@ -140,63 +211,57 @@ DeepSeek 官方声明 `inputModalities` 含 `image` 的那天。
 只是想「随手看张图」——**用 modlens 更省事**，零配置、不改本体。
 
 本插件的定位是**设计稿保真度判定**：要求每条结论可回溯到证据，
-因此不惜多配一条路由、多打两处本体补丁，换取图片走原生通路、判定可回放。
+因此不惜多配一条路由、多改两处本体，换取图片走原生通路、判定可回放。
 如果你不需要这个保证，这些成本就是纯负担。
 
-## 其它安装方式与卸载
+---
 
-### 从本地目录装（开发时）
+## 参考
 
-不走 GitHub 的话，clone 下来直接跑完整安装：
-
-```sh
-export BAILIAN_API_KEY=<你的百炼 key>
-node install.mjs [profile]                    # 五步全做，含写插件行
-DSH_REPO=<DSH 源码仓库> node install.mjs --with-patches
-```
-
-它做五件事，全部幂等、改动前自动备份：软链 `node_modules` → 软链 skill →
-写识图路由 → 写插件行 → 自检。**不代经手密钥**（只写 `apiKeyEnv` 变量名）。
-
-> ### ⚠️ 安装后必须冷启动
->
-> **HMR 是关闭的**，插件、skill、profile 补丁都不热加载，**刷新浏览器不算**。用这条：
->
-> ```sh
-> node install.mjs --restart
-> ```
->
-> 它从运行中的进程读出原本的启动命令与工作目录再拉起，不会丢掉你启动时带的 `--patch` 参数；
-> 并且**立即返回** —— 所以跑在 dsh 里的 agent 也能安全调用，自己 `pkill` 会把自己一起杀掉。
-
-### 卸载
-
-`dsh plugin remove` 只摘插件行，另外三样要手工清：
+### `install.mjs` 的全部开关
 
 ```sh
-dsh plugin --profile web remove dsh-deepseek-vision   # 1. 插件行
-rm -f ~/.agents/skills/deepseek-vision                # 2. skill 软链（不删会变悬空链，DSH 会忽略但脏）
-# 3. 从 $DSH_HOME/settings.yaml 里删掉 llm-pi-ai.providers.bailian 整段
-git -C <DSH 源码仓库根> apply -R <包目录>/patches/dsh-local.patch   # 4. 若装过本体补丁
+node install.mjs [profile]         # 完整安装（不走 dsh plugin add 时用这条）
 ```
 
-**第 4 步不能漏。** 只留序列化那处补丁的话，粘图后模型会被告知去调一个已经不存在的工具。
+| 开关 | 作用 |
+|---|---|
+| `[profile]` | 目标 profile，默认 `web` |
+| `--route-only` | 不写插件行。**用 `dsh plugin add` 装过就必须加**，见下 |
+| `--no-patches` | 不改 DSH 本体。粘贴图片将仍被拒绝 |
+| `--revert-patches` | 还原本体补丁并退出 |
+| `--restart` | 只冷启动，可从 dsh 自己的进程内部调用 |
+| `--force` | 无视重启前的体检告警 |
+| `DSH_REPO=<仓库根>` | 环境变量。只在自动定位不对时才需要，正常不必给 |
 
-### 第二步：补配套
+完整安装做六件事，全部幂等、改动前自动备份：软链 `node_modules` → 软链 skill →
+写识图路由 → 写插件行 → 改本体 → 自检。
 
-`dsh plugin add` 只装插件行，**不会**帮你配识图路由、装 skill、打本体补丁。这三样用：
+### 用 `dsh plugin add` 装过之后，`--route-only` 不能省
 
-```sh
-cd "${DSH_HOME:-$HOME/.dsh}/profiles/web/node_modules/dsh-deepseek-vision"
-export BAILIAN_API_KEY=<你的百炼 key>
-node install.mjs --route-only                      # 路由 + skill
-DSH_REPO=<DSH 源码仓库根> node install.mjs --route-only --with-patches   # 再加上「粘贴图片」所需的本体补丁
-```
-
-**`--route-only` 不能省。** 不加它会往 profile 的 `cordis.patch.yml` 再写一条同 id 的行，
-与 bundle 提供的那条撞车，DSH 启动时直接抛 `duplicate loader entry id: deepseek-vision`，
-**整个 profile 起不来** —— 不是插件加载失败，是 dsh 根本启动不了。
+不加它会往 profile 的 `cordis.patch.yml` 再写一条同 id 的行，与 bundle 提供的那条撞车，
+DSH 启动时直接抛 `duplicate loader entry id: deepseek-vision`，**整个 profile 起不来** ——
+不是插件加载失败，是 dsh 根本启动不了。
 （脚本已内置防护：检测到本包已作为 bundle 装入就会跳过写入。）
+
+### 安装后必须冷启动
+
+**HMR 是关闭的**，插件、skill、profile 补丁、本体改动都不热加载，**刷新浏览器不算**：
+
+```sh
+node install.mjs --restart
+```
+
+它从运行中的进程读出原本的启动命令与工作目录再拉起，不会丢掉你启动时带的 `--patch` 参数；
+并且**立即返回** —— 所以跑在 dsh 里的 agent 也能安全调用（自己 `pkill` 会把自己一起杀掉）。
+
+新进程**继承调用方当前的环境**。杀旧进程之前先做两项体检，任一不过就停手并保留旧进程：
+
+- PATH 上的 `node` 不满足 DSH 的 `^22.19 || >=24`；
+- 旧进程持有、而当前 shell 没有的密钥类环境变量（例如只 export 在另一个终端里的
+  `BAILIAN_API_KEY`）—— 丢掉它会让插件「装好了却用不了」。
+
+新进程的输出写到 `$DSH_HOME/dsh-deepseek-vision-restart.log`。
 
 ### 识图路由长什么样
 
@@ -227,66 +292,31 @@ llm-pi-ai:
 **`thinkingFormat: qwen` 不能省。** 不关思维时一次读数会产生 5000+ 字推理
 （1582 输出 token，关掉后只要 14），读数结果完全相同 —— 113 倍的无谓开销。
 
-## 配置
+### 卸载
 
-| 字段 | 默认 | 说明 |
-|---|---|---|
-| `provider` | `bailian` | 识图路由名，须声明 `input: [text, image]` |
-| `model` | `qwen3.8-max` | 识图模型 |
-| `maxTokens` | `4000` | 单次识图输出上限 |
-| `reasoningEffort` | `off` | 读数式提问不需要思维链 |
+```sh
+node install.mjs --revert-patches                     # 1. 先还原本体补丁
+dsh plugin --profile web remove dsh-deepseek-vision   # 2. 插件行
+rm -f ~/.agents/skills/deepseek-vision                # 3. skill 软链
+# 4. 从 $DSH_HOME/settings.yaml 里删掉 llm-pi-ai.providers.bailian 整段
+```
 
-## 工具
+**第 1 步不能漏，而且要放在最前面。** 只留序列化那处改动的话，粘图后模型会被告知去调一个
+已经不存在的工具；插件先被摘掉的话，`--revert-patches` 也就跟着没了。
 
-### `deepseek_vision(image_path, question)`
+## 已知限制
 
-看一张图并回答问题。`image_path` 三选一：
-
-- 文件绝对路径
-- **http(s) 图片地址** —— 文档、网页里的图直接传 URL
-- 上下文 `[图片 …]` 提示里的附件 id（`attachment=<id>` 或裸 id 都行）
-
-调用方**自己就是多模态模型时会被拒绝** —— 它直接看更准也更省，绕一手转述反而丢信息。
-这同时是官方多模态上线时的自动让位机制：DeepSeek 声明 `image` 那天，本工具自己退出。
-
-## 提问方式决定成败
-
-以下是实测结论，不是风格偏好。完整版在 `skills/deepseek-vision/SKILL.md`。
-
-| 提问形式 | 零差异对照的幻觉 | 难档缺陷召回 |
-|---|---|---|
-| 「你自己找差异」 | 0/30 | 0/2 |
-| 「这个方面有区别吗」 | 0/30 | 0/2 —— 判定题，模型默认答否 |
-| 「哪个更大」 | 0/36 | 1/2 —— 留白类被系统性答反 3/3 |
-| **「各自是多少」** | **0/12** | **2/2** |
-
-同一个模型、同一批图，**召回从 0/2 走到 2/2，幻觉全程为 0**。换的只是问法。
-
-**读数方向可信，量级不可信**：字重真值 800/500 读作 800/700，间距 80/25 读作 72/38 ——
-被测侧总被拉向参照侧。用它判断「有没有差异、往哪个方向」，不要当测量值；
-实现侧的精确值用 `getComputedStyle` 或像素测量取得。
-
-## 成本
-
-图像 token ≈ 像素数 / 1024（实测 1023–1127 px/token，与长宽比无关）。
-
-| | 均值 | 区间 |
-|---|---|---|
-| 单次判定 | 0.037 元 | 0.027 – 0.051 元 |
-| 延迟 | 9.0s | 6.6 – 11.6s |
-
-**看一次图约 4 分钱。** 单价按 12 元/百万输入、36 元/百万输出估算，上线前请在控制台核对。
-
-## Known Limitations and Deferred Work
-
-- **本体补丁不能自失效。** 曾尝试让插件注册渲染器、补丁查表，从而在插件卸载后自动退回原行为。
-  行不通：插件在仓库外，通过 profile 的 `node_modules` 解析 `@deepseek-ai/dsh-llm`（构建产物），
-  而源码运行的 DSH 用的是仓库里那份 —— **两份是不同的模块实例，模块级状态不共享**。
-  要做到需把本插件搬进仓库 workspace 当一个包。
+- **本体改动不能自失效。** 插件在仓库外，通过 profile 的 `node_modules` 解析
+  `@deepseek-ai/dsh-llm`，而源码运行的 DSH 用的是仓库里那份 —— 两份是不同的模块实例，
+  模块级状态不共享，所以插件没法在卸载时让补丁自动退回。卸载必须显式 `--revert-patches`。
+- **升级 DSH 会冲掉本体改动**（文件被新版覆盖）。表现是「粘图又被拒了」，重跑一次
+  `node install.mjs --route-only` 即可。这也是有意的：新版 DSH 万一自己支持了图片，补丁不该悄悄留着。
+- **按代码形态定位锚点，不按版本号。** 上游改写了那两处时，脚本会**报错并列出文件**，
+  而不是打半个补丁。两种形态都会被改到（源码运行的 `src/*.ts`、npm 安装的 `lib/index.js`）——
+  无法可靠判断哪份是活的，宁可都改；源码仓库里因此会多出未跟踪的 `.dsh-vision-orig` 备份文件。
 - **`attachment=<id>` 形式只在进程内有效**：id → 路径的索引是内存态，重启后失效，需改用文件路径。
 - **未覆盖多图对比**：`deepseek_vision` 一次只看一张图。设计稿与实现的并排对比图需调用方自己拼。
 - **私有文档的图取不到**：飞书、Notion 这类需要登录态的图片，直传 URL 会 401/403。
   需先用对应 skill 下载到本地再传路径。工具会在报错里指明这条路，但没有内建凭据通路。
-- **`install.mjs` 的自检是宽松匹配**：`settings.yaml` 由 DSH 的设置写入器维护并会规范化格式
-  （实测 `[text, image]` 被重写成 `[ text, image ]`），因此自检只做模糊匹配，
-  不保证路由字段语义正确 —— 它查的是「像不像配过」，不是「配得对不对」。
+- **自检是宽松匹配**：`settings.yaml` 由 DSH 的设置写入器维护并会规范化格式，
+  因此自检只做模糊匹配 —— 它查的是「像不像配过」，不是「配得对不对」。

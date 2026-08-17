@@ -1,28 +1,43 @@
-# 本地补丁
+# 本体补丁
+
+`install.mjs` **默认就打这两处补丁**，不需要单独操作，也不需要告诉它 DSH 装在哪。
+本文档说明它改了什么、为什么、以及自动打不上时怎么手工重做。
+
+```sh
+node install.mjs --route-only        # 打（幂等，已打过会跳过）
+node install.mjs --revert-patches    # 还原
+node install.mjs --no-patches ...    # 这次不打
+```
 
 **只有需要「在对话框里直接粘贴图片」时才需要这两处补丁。**
-只用「文件路径 / URL / 附件 id + `deepseek_vision`」的话，插件独立可用，跳过本目录。
+只用「文件路径 / URL / 附件 id + `deepseek_vision`」的话，加 `--no-patches`，插件独立可用。
 
-`dsh-local.patch` 含**两处**改动，必须同时存在或同时还原。
+两处改动**必须同时存在或同时还原**。只还原准入那一处是安全的（粘图回到被拒绝的原样）；
+只还原序列化那一处会让图片撞上 `UNSUPPORTED_CONTENT`，那条会话再也走不下去。
 
-## 一、`packages/host/apiproxy/src/api-proxy.ts`
+## 一、`@deepseek-ai/dsh-host-apiproxy`：去掉图片准入拒绝
 
-去掉纯文本路由的图片准入拒绝。
+改 `src/api-proxy.ts`（源码运行）与 `lib/index.js`（npm 安装）里的同一段：删掉
+`if (hasImage) { … MODEL_DOES_NOT_SUPPORT_IMAGES … }` 整块。
 
 原逻辑在消息准入处直接拒绝，用户粘贴的图片连会话都进不去。移除后图片保留在持久消息里，
 界面照常显示一张图。
 
-## 二、`packages/llm/llm-deepseek/src/serialize.ts`
+## 二、`@deepseek-ai/dsh-llm-deepseek`：抛错换成文字指针
 
 `assertTextOnly()` 换成 `replaceImagesWithPointers()`：图片块在序列化前的最后一刻变成一行
 
 ```
-[图片 image/png 2940x1912 attachment=sha256:…]
+[图片 image/png 2940x1912 attachment=sha256:…]（本模型看不到图片内容。…）
 ```
+
+调用点相应地从 `assertTextOnly(message.content)` 改成拷贝一份重写过的 message ——
+**拷贝而不是就地改**：那个数组属于会话里的持久消息对象，就地改会让界面与后续压缩看到的
+也变成文字，图就从气泡里消失了。
 
 **为什么放在这一站**：这是消息通往 DeepSeek 的最后一步。此前每一站 —— 持久化、会话日志、
 界面渲染 —— 看到的都还是真正的图片块，所以**用户在气泡里看到的是一张图**，证据也完整留档。
-早期版本把替换放在 `agent/pre-step`，结果用户看到的是一串路径而不是图。
+放在更早的位置（准入检查、`agent/pre-step`）替换，用户看到的就会变成一串路径而不是图。
 对照组是 Kimi K3 这类多模态路由：那边不做任何替换、界面正常显示缩略图 —— 说明问题出在替换的位置，不在界面。
 
 **补丁只打印附件 id，不推算任何文件路径。** 路径命名规则完整地留在插件一侧
@@ -31,38 +46,49 @@
 
 文件由插件在 `agent/pre-step` 落盘 —— 那一步**只落盘，不改动任何内容块**。
 
-## 为什么不做成插件内的改动
+## 脚本怎么找到 DSH
 
-`resolveModelInfo` 直接返回适配器自述，没有 waterfall，插件改不了 `llm-deepseek` 硬编码的
-`inputModalities: ['text']`；准入检查本身也没有扩展点。
+按 profile 的 `node_modules` 解析 `@deepseek-ai/dsh-host-apiproxy` 与
+`@deepseek-ai/dsh-llm-deepseek`，`realpath` 之后就是包根目录。拿到的正是运行中的 dsh
+实际加载的那份：npm 安装时是真实目录，源码运行时那里是指向仓库 workspace 的软链。
+依次尝试的基点：`$DSH_HOME/profiles/<profile>`、`$DSH_HOME/profiles`、本包目录、PATH 上的 `dsh`。
 
-曾试过注册一条「不声明模态」的代理路由来绕开准入检查，两百行代码换来一道被绕过的安全检查，
-不划算，已废弃。也试过让插件注册渲染器、补丁查表从而自失效 —— 行不通：插件在仓库外，
-通过 profile 的 `node_modules` 解析 `@deepseek-ai/dsh-llm`（构建产物），而源码运行的 DSH
-用的是仓库里那份，**两份是不同的模块实例，模块级状态不共享**。
-
-## 应用与还原
+**`DSH_REPO` 只是覆盖开关**，自动定位不对时才需要：
 
 ```sh
-# 应用（install.mjs --with-patches 会自动做，幂等）
-git -C <DSH 仓库根> apply <本目录>/dsh-local.patch
-
-# 还原
-git -C <DSH 仓库根> apply -R <本目录>/dsh-local.patch
+DSH_REPO=<DSH 源码仓库根> node install.mjs --route-only
 ```
 
-**移除本插件时必须一并还原**，否则图片会直达纯文本适配器的序列化拒绝
-（`llm-deepseek/src/serialize.ts` 的 `assertTextOnly`），那条会话将无法继续。
+一个包下 `src/*.ts` 与 `lib/index.js` 都存在时**两份都改**。无法可靠判断哪份是活的
+（源码运行走 tsx + tsconfig paths → `src/`；npm 安装走 exports → `lib/index.js`），
+而半打状态正是要消灭的失败模式。
 
-只还原准入那一处是安全的（粘图回到被拒绝的原样）；只还原序列化那一处会让会话卡死。
+## 匹配与备份
 
-## 升级 DSH 后重打
+不用 `git apply`：那需要仓库、需要精确的上下文行，npm 装的 DSH 两样都没有。
+改成按代码形态定位锚点 —— 以 `if (hasImage) {` 的缩进为界、以那句
+`Reject core image content` 注释为界 —— 同一条正则同时命中 TS 源码与构建产物。
+
+- **幂等**：改过的文件里留有 `DSH-DEEPSEEK-VISION-PATCH` 标记，见到就跳过。
+- **备份**：改动前原文另存为 `<原文件名>.dsh-vision-orig`，`--revert-patches` 按字节拷回。
+- **失败要响**：锚点找不到就打印 `✗` 并以非零码退出，绝不静默跳过 ——
+  「装完粘图被拒、脚本却显示一切正常」是最难查的一类失败。
+
+## 手工重做
+
+自动打不上（上游改了那两处的写法）时，`dsh-local.patch` 是**参考 diff**，
+不再被脚本使用，可读性优先。照着它改即可，改动本身很小：一处是删掉一个 `if` 块，
+一处是把抛错换成返回文字指针。
+
+改完想让脚本认账，在改动处留一行含 `DSH-DEEPSEEK-VISION-PATCH` 的注释即可。
+
+## 升级 DSH 之后
+
+被改的文件被新版覆盖，标记随之消失，表现是「粘图又被拒了」。重跑一次即可：
 
 ```sh
-git -C <DSH 仓库根> apply <本目录>/dsh-local.patch
+node install.mjs --route-only
 ```
-
-冲突时按上面两节的说明手工重做即可 —— 一处是删掉一个 if 块，一处是把抛错换成返回文字指针。
 
 ## 官方发布多模态那天
 
