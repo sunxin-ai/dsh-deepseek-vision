@@ -3,6 +3,7 @@
 **让 DeepSeek Harness 里的纯文本模型能看图。**
 
 - **短期弥补 DeepSeek 的能力缺口。** DSH 的图像通路本已完整，缺的只是一条声明了多模态的路由。官方多模态上线那天，本插件自动让位、可原样留着。
+  （**要在对话框里直接粘贴图片，需给 DSH 本体打两处补丁** —— 那道拦截在 `api-proxy` 里，插件够不着。装的时候加 `--with-patches` 即可，一条命令的事。）
 - **把识图做成一个 tool。** 图片不进主模型上下文；它看到一行 `[图片 …]` 提示，需要时自己调 `deepseek_vision`。不看就不产生任何成本，问什么由模型自己决定。
 - **附完整 eval，可自测。** 4 组夹具、23 处注入缺陷、四条通过线。换模型后重跑一遍就知道能不能用 —— 生态里同类插件没人提供这个。
 
@@ -28,11 +29,20 @@ dsh plugin --profile web add github:sunxin-ai/dsh-deepseek-vision
 ```sh
 cd "${DSH_HOME:-$HOME/.dsh}/profiles/web/node_modules/dsh-deepseek-vision"
 export BAILIAN_API_KEY=<第 1 步拿到的 key>
-node install.mjs --route-only        # 写识图路由 + 装 skill
-node install.mjs --restart           # 冷启动（HMR 是关的，刷新浏览器不算）
+DSH_REPO=<DSH 源码仓库根> node install.mjs --route-only --with-patches
+node install.mjs --restart          # 冷启动。HMR 是关的，刷新浏览器不算
 ```
 
-装好了。给模型一个图片路径或图片 URL，让它「看看这张图」即可。
+装好了。**在对话框里粘一张图，直接问「这是啥」即可。**
+
+`--with-patches` 会给 DSH 本体打两处补丁，这是「粘贴图片」唯一的实现方式 ——
+那道拦截在 `api-proxy` 的消息准入里，插件够不着（`resolveModelInfo` 直接返回适配器自述，
+没有 waterfall，改不了 `llm-deepseek` 硬编码的 `inputModalities: ['text']`）。
+补丁很小、幂等、可一键还原，详见 [`patches/README.md`](patches/README.md)。
+
+> **不想改本体？** 去掉 `DSH_REPO=... --with-patches`，只跑 `node install.mjs --route-only`。
+> 此时粘贴仍会被拒，但**给文件路径、图片 URL 或附件 id 让模型调 `deepseek_vision` 一样可用** ——
+> 只是多贴一次路径。
 
 ### 让 DSH 自己装
 
@@ -43,7 +53,7 @@ node install.mjs --restart           # 冷启动（HMR 是关的，刷新浏览�
 
 1. dsh plugin --profile web add github:sunxin-ai/dsh-deepseek-vision
 2. cd "${DSH_HOME:-$HOME/.dsh}/profiles/web/node_modules/dsh-deepseek-vision"
-3. BAILIAN_API_KEY=<你的 key> node install.mjs --route-only
+3. BAILIAN_API_KEY=<你的 key> DSH_REPO=<DSH 源码仓库根> node install.mjs --route-only --with-patches
 4. node install.mjs --restart      # 不要用 pkill，那会杀掉你自己
 ```
 
@@ -55,6 +65,8 @@ node install.mjs --restart           # 冷启动（HMR 是关的，刷新浏览�
   它拿不到结果也无法确认是否成功；实测有 agent 在「杀了自己怎么办」上耗掉数分钟。
   `--restart` 立即返回，重启在它身后完成。
 - **自己编一个 key** —— 脚本不代经手密钥，自检会明确报缺少 `BAILIAN_API_KEY`，它应当回来向你要。
+- **漏掉 `--with-patches` 或 `DSH_REPO`** —— 装完粘贴图片仍会被拒。不带 `DSH_REPO` 时脚本
+  只会打印「已跳过」而**不报错**，容易被当成装好了。
 
 > DSH 的自修改工具（`cordis_define` / `cordis_run`）**不能**用来做持久安装 ——
 > 那套是内存态的：不产生插件文件、不改 `cordis.yml`、重启即消失。持久安装必须落到文件，所以走上面这条。
