@@ -1,27 +1,46 @@
 # dsh-deepseek-vision
 
-给纯文本 DSH 模型接上「义眼」——**一个短期方案，等 DeepSeek 官方多模态上线就该退休。**
+**让 DeepSeek Harness 里的纯文本模型能看图。**
 
-## 一句话：DSH 早就支持，只是没有一条能看图的路由
+- **短期弥补 DeepSeek 的能力缺口。** DSH 的图像通路本已完整，缺的只是一条声明了多模态的路由。官方多模态上线那天，本插件自动让位、可原样留着。
+- **把识图做成一个 tool。** 图片不进主模型上下文；它看到一行 `[图片 …]` 提示，需要时自己调 `deepseek_vision`。不看就不产生任何成本，问什么由模型自己决定。
+- **附完整 eval，可自测。** 4 组夹具、23 处注入缺陷、四条通过线。换模型后重跑一遍就知道能不能用 —— 生态里同类插件没人提供这个。
 
-DSH 的图像通路是**完整的**，不是待填的桩：
+---
 
-| 件 | 位置 | 状态 |
-|---|---|---|
-| `read_image` 工具 | `packages/fs/tool-fs/src/read-image.ts` | 完整实现，含 schema / render / 门禁 |
-| `ImageBlock` | `packages/llm/llm/src/types.ts` | 完整，JSDoc 明说是 role-neutral、为前向兼容而设 |
-| `AttachmentStore` | `packages/attachment/attachment/` | 完整服务：`saveImage` / `readImage` / `imageLimits` |
-| 能力门禁 | `read-image.ts` 的 `assertImageCapableRoute` | 查 `resolveModelInfo(...).inputModalities` |
+## 三步装好
 
-**唯一缺的是一条声明了 `input: [text, image]` 的供应商路由。** DeepSeek 自己的模型没声明
-（`llm-deepseek/src/adapter.ts` 里 `inputModalities: ['text']` 是硬编码的），所以整条通路空转。
+### 1. 拿一个百炼 API Key
 
-本插件做的就是**把这条路由配上，引擎换成 Qwen**。图片仍然走 DSH 原生的
-`ctx.attachments` 内容寻址存储与 `ImageBlock`，与用户上传的图同一生命周期，
-判定可从会话日志完整回放 —— 不自建任何图片通道。
+去 [阿里云百炼控制台](https://bailian.console.aliyun.com/) 开通并创建 API-KEY。
 
-> 生态里同类插件（modlens、dsh-vision-toolkit 等，都是数百到上千星的项目）都自建通道、并替模型看完再注入描述。
-> 本插件反过来：走官方通路，并把「要不要看、看什么」交还给模型 —— 不看就不产生任何识图成本。
+**新用户每款模型送 100 万输入 + 100 万输出 Token，有效期 90 天**（[官方说明](https://help.aliyun.com/zh/model-studio/new-free-quota)）。
+本插件一次识图约 2000 输入 + 400 输出 token，**免费额度够看几百次图**，日常用基本不花钱。
+
+### 2. 装插件
+
+```sh
+dsh plugin --profile web add github:sunxin-ai/dsh-deepseek-vision
+```
+
+### 3. 补配套并重启
+
+```sh
+cd "${DSH_HOME:-$HOME/.dsh}/profiles/web/node_modules/dsh-deepseek-vision"
+export BAILIAN_API_KEY=<第 1 步拿到的 key>
+node install.mjs --route-only        # 写识图路由 + 装 skill
+node install.mjs --restart           # 冷启动（HMR 是关的，刷新浏览器不算）
+```
+
+装好了。给模型一个图片路径或图片 URL，让它「看看这张图」即可。
+
+> **想在对话框里直接粘贴图片**，还需要给 DSH 本体打两处补丁：
+> `DSH_REPO=<DSH 源码仓库根> node install.mjs --route-only --with-patches`
+> 详见 [`patches/README.md`](patches/README.md)。不打也能用，只是要给路径而不是粘贴。
+
+**换成别家的多模态模型**：改两处配置即可，见下方[换成别的模型](#换成别的模型)。
+
+---
 
 ## 引擎为什么是 Qwen：它通过了基准测试
 
@@ -87,28 +106,31 @@ DeepSeek 官方声明 `inputModalities` 含 `image` 的那天。
 因此不惜多配一条路由、多打两处本体补丁，换取图片走原生通路、判定可回放。
 如果你不需要这个保证，这些成本就是纯负担。
 
-## 安装
+## 其它安装方式与卸载
 
-分两步：**装插件**（DSH 原生的 `dsh plugin`），**补配套**（路由 / skill / 可选补丁）。
+### 从本地目录装（开发时）
 
-### 第一步：装插件
-
-```sh
-dsh plugin --profile web add github:sunxin-ai/dsh-deepseek-vision
-```
-
-建议钉住 commit，避免上游变动打断你的环境：
+不走 GitHub 的话，clone 下来直接跑完整安装：
 
 ```sh
-dsh plugin --profile web add github:sunxin-ai/dsh-deepseek-vision#<commit-sha>
+export BAILIAN_API_KEY=<你的百炼 key>
+node install.mjs [profile]                    # 五步全做，含写插件行
+DSH_REPO=<DSH 源码仓库> node install.mjs --with-patches
 ```
 
-`dsh plugin` 会读本包 `package.json` 的 `dsh.bundle.patch`，自动把本包追加进 profile 的
-`dsh.profile.bundles`，插件行由包内 `cordis.patch.yml` 提供。验证：
+它做五件事，全部幂等、改动前自动备份：软链 `node_modules` → 软链 skill →
+写识图路由 → 写插件行 → 自检。**不代经手密钥**（只写 `apiKeyEnv` 变量名）。
 
-```sh
-dsh --profile web --dump-config | grep deepseek-vision
-```
+> ### ⚠️ 安装后必须冷启动
+>
+> **HMR 是关闭的**，插件、skill、profile 补丁都不热加载，**刷新浏览器不算**。用这条：
+>
+> ```sh
+> node install.mjs --restart
+> ```
+>
+> 它从运行中的进程读出原本的启动命令与工作目录再拉起，不会丢掉你启动时带的 `--patch` 参数；
+> 并且**立即返回** —— 所以跑在 dsh 里的 agent 也能安全调用，自己 `pkill` 会把自己一起杀掉。
 
 ### 卸载
 
@@ -139,30 +161,6 @@ DSH_REPO=<DSH 源码仓库根> node install.mjs --route-only --with-patches   # 
 **整个 profile 起不来** —— 不是插件加载失败，是 dsh 根本启动不了。
 （脚本已内置防护：检测到本包已作为 bundle 装入就会跳过写入。）
 
-### 从本地目录装（开发时）
-
-不走 GitHub 的话，clone 下来直接跑完整安装：
-
-```sh
-export BAILIAN_API_KEY=<你的百炼 key>
-node install.mjs [profile]                    # 五步全做，含写插件行
-DSH_REPO=<DSH 源码仓库> node install.mjs --with-patches
-```
-
-它做五件事，全部幂等、改动前自动备份：软链 `node_modules` → 软链 skill →
-写识图路由 → 写插件行 → 自检。**不代经手密钥**（只写 `apiKeyEnv` 变量名）。
-
-> ### ⚠️ 安装后必须冷启动
->
-> **HMR 是关闭的**，插件、skill、profile 补丁都不热加载，**刷新浏览器不算**。用这条：
->
-> ```sh
-> node install.mjs --restart
-> ```
->
-> 它从运行中的进程读出原本的启动命令与工作目录再拉起，不会丢掉你启动时带的 `--patch` 参数；
-> 并且**立即返回** —— 所以跑在 dsh 里的 agent 也能安全调用，自己 `pkill` 会把自己一起杀掉。
-
 ### 识图路由长什么样
 
 `install.mjs` 会写进 `$DSH_HOME/settings.yaml`；手工配的话：
@@ -191,12 +189,6 @@ llm-pi-ai:
 
 **`thinkingFormat: qwen` 不能省。** 不关思维时一次读数会产生 5000+ 字推理
 （1582 输出 token，关掉后只要 14），读数结果完全相同 —— 113 倍的无谓开销。
-
-### 关于粘贴图片（可选）
-
-只用「文件路径 / URL / 附件 id」的话跳过。要让**对话框里粘贴的图**能用，
-需要给 DSH 本体打两处补丁，见 [`patches/README.md`](patches/README.md)。上游片段的归属见 [NOTICE](NOTICE)。
-**两处必须同时存在或同时还原。**
 
 ## 配置
 
