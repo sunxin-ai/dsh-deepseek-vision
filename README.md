@@ -34,6 +34,31 @@ node install.mjs --restart           # 冷启动（HMR 是关的，刷新浏览�
 
 装好了。给模型一个图片路径或图片 URL，让它「看看这张图」即可。
 
+### 让 DSH 自己装
+
+不想手敲的话，把下面这段整体发给 DSH，它有 bash，会自己跑完：
+
+```text
+装 dsh-deepseek-vision，按这四步，不要自己发挥：
+
+1. dsh plugin --profile web add github:sunxin-ai/dsh-deepseek-vision
+2. cd "${DSH_HOME:-$HOME/.dsh}/profiles/web/node_modules/dsh-deepseek-vision"
+3. BAILIAN_API_KEY=<你的 key> node install.mjs --route-only
+4. node install.mjs --restart      # 不要用 pkill，那会杀掉你自己
+```
+
+**「不要自己发挥」这句请保留。** 三处最容易被自由发挥搞砸：
+
+- **漏掉 `--route-only`** —— 会写进一条与 bundle 重复的插件行，DSH 启动直接抛
+  `duplicate loader entry id`，**整个 profile 起不来**。脚本内置了防护会跳过，但不是所有 agent 都读得懂提示。
+- **自己 `pkill` 重启** —— agent 通常就跑在那个要被重启的进程里，杀掉等于自杀，
+  它拿不到结果也无法确认是否成功；实测有 agent 在「杀了自己怎么办」上耗掉数分钟。
+  `--restart` 立即返回，重启在它身后完成。
+- **自己编一个 key** —— 脚本不代经手密钥，自检会明确报缺少 `BAILIAN_API_KEY`，它应当回来向你要。
+
+> DSH 的自修改工具（`cordis_define` / `cordis_run`）**不能**用来做持久安装 ——
+> 那套是内存态的：不产生插件文件、不改 `cordis.yml`、重启即消失。持久安装必须落到文件，所以走上面这条。
+
 > **想在对话框里直接粘贴图片**，还需要给 DSH 本体打两处补丁：
 > `DSH_REPO=<DSH 源码仓库根> node install.mjs --route-only --with-patches`
 > 详见 [`patches/README.md`](patches/README.md)。不打也能用，只是要给路径而不是粘贴。
