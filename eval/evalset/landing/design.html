@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Northwind — landing (design source of truth)</title>
+<style>
+  /* 设计稿真值实现：渲染出的 design.png 即「设计稿」。
+     v1.html 必须照着 design.png 独立重写，不得从本文件复制。 */
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:1280px; height:800px; overflow:hidden; }
+  body {
+    background:#FFFFFF;
+    color:#16181D;
+    font-family:-apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---- nav ---- */
+  .nav { height:70px; padding:0 56px; display:grid; grid-template-columns:auto 1fr auto;
+         align-items:center; border-bottom:1px solid #EEF0F5; }
+  .brand { display:flex; align-items:center; gap:10px; }
+  .logo { width:26px; height:26px; border-radius:8px; background:#4B5ED8; display:grid; place-items:center; }
+  .logo svg { width:15px; height:15px; }
+  .brandname { font-size:17px; font-weight:700; letter-spacing:-0.2px; }
+  .navlinks { display:flex; gap:30px; justify-content:center; }
+  .navlinks span { font-size:14px; font-weight:500; color:#5B6270; }
+  .navright { display:flex; align-items:center; gap:20px; }
+  .signin { font-size:14px; font-weight:500; color:#5B6270; }
+  .navbtn { height:38px; padding:0 18px; border-radius:19px; background:#4B5ED8;
+            color:#FFFFFF; font-size:14px; font-weight:600; display:flex; align-items:center; }
+
+  /* ---- hero ---- */
+  .hero { margin-top:32px; text-align:center; padding:0 56px; }
+  .pill { display:inline-flex; align-items:center; height:28px; padding:0 13px; border-radius:14px;
+          background:#E9ECFB; color:#3444B2; font-size:12px; font-weight:600; letter-spacing:0.3px; }
+  .h1 { margin-top:20px; font-size:42px; font-weight:800; letter-spacing:-1.4px; line-height:1.1; color:#14161B; }
+  .sub { margin:16px auto 0; max-width:552px; font-size:16px; font-weight:400; line-height:1.6; color:#6B7280; }
+  .actions { margin-top:22px; display:flex; justify-content:center; gap:13px; }
+  .btnPrimary { height:46px; padding:0 24px; border-radius:10px; background:#4B5ED8;
+                color:#FFFFFF; font-size:15px; font-weight:600; display:flex; align-items:center; }
+  .btnGhost { height:46px; padding:0 22px; border-radius:10px; background:#FFFFFF; border:1px solid #D9DDE6;
+              color:#252932; font-size:15px; font-weight:600; display:flex; align-items:center; }
+  .trust { margin-top:14px; font-size:13px; font-weight:500; color:#98A0AE; }
+
+  /* ---- features ---- */
+  .features { margin-top:36px; padding:0 56px; display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
+  .card { border:1px solid #E7E9EF; border-radius:14px; padding:20px 20px 22px; }
+  .tile { width:42px; height:42px; border-radius:12px; background:#E9ECFB; display:grid; place-items:center; }
+  .tile svg { width:21px; height:21px; }
+  .ctitle { margin-top:14px; font-size:17px; font-weight:700; letter-spacing:-0.2px; }
+  .ctext { margin-top:7px; font-size:13px; line-height:1.55; color:#6B7280; }
+
+  /* ---- cta band ---- */
+  .band { margin:40px 56px 0; height:100px; border-radius:18px; background:#171A21;
+          display:flex; align-items:center; justify-content:space-between; padding:0 32px; }
+  .bandTitle { font-size:22px; font-weight:700; color:#FFFFFF; letter-spacing:-0.3px; }
+  .bandSub { margin-top:6px; font-size:13px; color:#A3AAB8; }
+  .bandBtn { height:44px; padding:0 22px; border-radius:10px; background:#FFFFFF;
+             color:#171A21; font-size:15px; font-weight:600; display:flex; align-items:center; }
+</style>
+</head>
+<body>
+
+  <div class="nav">
+    <div class="brand">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 17L10 8l4 5 6-8"/>
+        </svg>
+      </div>
+      <div class="brandname">Northwind</div>
+    </div>
+    <div class="navlinks">
+      <span>Product</span><span>Solutions</span><span>Pricing</span><span>Docs</span>
+    </div>
+    <div class="navright">
+      <div class="signin">Sign in</div>
+      <div class="navbtn">Get started</div>
+    </div>
+  </div>
+
+  <div class="hero">
+    <div class="pill">NEW — Realtime insights</div>
+    <div class="h1">Ship product decisions<br>with confidence</div>
+    <div class="sub">Northwind turns scattered product signals into one live view, so your team stops guessing and starts shipping what actually moves the metric.</div>
+    <div class="actions">
+      <div class="btnPrimary">Start free trial</div>
+      <div class="btnGhost">Book a demo</div>
+    </div>
+    <div class="trust">Trusted by 12,000+ teams shipping every week</div>
+  </div>
+
+  <div class="features">
+    <div class="card">
+      <div class="tile">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#4B5ED8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 20V10M9 20V4M15 20v-7M21 20V8"/>
+        </svg>
+      </div>
+      <div class="ctitle">Live metrics</div>
+      <div class="ctext">Every event lands in under a second, so the dashboard your team opens is the dashboard that is true right now.</div>
+    </div>
+    <div class="card">
+      <div class="tile">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#4B5ED8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="7"/><path d="M16.2 16.2L21 21"/>
+        </svg>
+      </div>
+      <div class="ctitle">Deep search</div>
+      <div class="ctext">Ask in plain language and get the cohort, the funnel step and the release that explains the change you are staring at.</div>
+    </div>
+    <div class="card">
+      <div class="tile">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#4B5ED8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3l7.5 4v5.5c0 4.2-3.1 7.4-7.5 8.5-4.4-1.1-7.5-4.3-7.5-8.5V7z"/><path d="M9.2 12.2l2 2 3.6-3.9"/>
+        </svg>
+      </div>
+      <div class="ctitle">Audit ready</div>
+      <div class="ctext">SOC 2 controls, row level permissions and a full history of who changed which definition and when they did it.</div>
+    </div>
+  </div>
+
+  <div class="band">
+    <div>
+      <div class="bandTitle">Start your first dashboard today</div>
+      <div class="bandSub">Free for 14 days. No credit card, no sales call, cancel in one click.</div>
+    </div>
+    <div class="bandBtn">Create workspace</div>
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Northwind — v2 injected</title>
+<style>
+  /* v1：= v1 + 注入缺陷（清单见 defects.md）；底稿照着 design.png 独立实现（flex 布局 / 自绘图标 / 目测取值），不是 design.html 的副本。
+     残余差异只应停留在实现层面：图标笔画画法、亚像素级取值。 */
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:1280px; height:800px; overflow:hidden; }
+  body {
+    background:#FFFFFF;
+    color:#16181D;
+    font-family:-apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap { padding-left:56px; padding-right:56px; }
+
+  /* header */
+  .site-header { height:70px; margin:0 56px; display:flex; align-items:center;
+                 border-bottom:1px solid #EEF0F5; }
+  .mark { display:flex; align-items:center; }
+  .mark-badge { width:26px; height:26px; background:#4B5ED8; border-radius:8px;
+                display:flex; align-items:center; justify-content:center; margin-right:10px; }
+  .mark-badge svg { width:15px; height:15px; }
+  .mark-word { font-size:17px; font-weight:700; letter-spacing:-0.3px; }
+  .menu { flex:1; display:flex; justify-content:center; }
+  .menu li { list-style:none; font-size:14px; font-weight:500; color:#5B6270; margin:0 15px; }
+  .header-end { display:flex; align-items:center; }
+  .link-signin { font-size:14px; font-weight:500; color:#5B6270; margin-right:20px; }
+  .cta-pill { height:38px; line-height:38px; padding:0 18px; border-radius:999px;
+              background:#4BD886; color:#FFFFFF; font-size:14px; font-weight:600; }
+
+  /* hero */
+  .hero { padding-top:32px; text-align:center; }
+  .badge { display:inline-block; height:28px; line-height:28px; padding:0 13px; border-radius:999px;
+           background:#E9ECFB; color:#3444B2; font-size:12px; font-weight:600; letter-spacing:0.3px; }
+  .hero-title { padding-top:20px; font-size:42px; font-weight:500; line-height:1.1;
+                letter-spacing:-1.4px; color:#14161B; }
+  .hero-copy { width:556px; margin:16px auto 0; font-size:16px; line-height:1.6; color:#6B7280; }
+  .hero-buttons { padding-top:22px; display:flex; justify-content:center; }
+  .btn { height:46px; line-height:46px; border-radius:10px; font-size:15px; font-weight:600; }
+  .btn-solid { padding:0 24px; background:#4B5ED8; color:#FFFFFF; margin-right:13px; }
+  .btn-outline { padding:0 22px; background:#FFFFFF; color:#252932; border:1px solid #DADEE6; line-height:44px; }
+  .hero-note { padding-top:14px; font-size:13px; font-weight:500; color:#98A0AE; }
+
+  /* features */
+  .feature-row { padding-top:36px; display:flex; }
+  .feature { flex:1 1 0; border:1px solid #E7E9EF; border-radius:14px; padding:20px 20px 22px; }
+  .feature + .feature { margin-left:20px; }
+  .feature-icon { width:42px; height:42px; border-radius:11px; background:#E9ECFB;
+                  display:flex; align-items:center; justify-content:center; }
+  .feature-icon svg { width:21px; height:21px; }
+  .feature-name { padding-top:14px; font-size:17px; font-weight:700; letter-spacing:-0.2px; }
+  .feature-body { padding-top:7px; font-size:13px; line-height:1.55; color:#6B7280; }
+
+  /* promo */
+  .promo { margin-top:12px; height:100px; background:#171A21; border-radius:18px;
+           display:flex; align-items:center; padding:0 32px; }
+  .promo-copy { flex:1; }
+  .promo-title { font-size:22px; font-weight:700; color:#FFFFFF; letter-spacing:-0.3px; }
+  .promo-line { padding-top:6px; font-size:13px; color:#A3AAB8; }
+  .promo-btn { height:44px; line-height:44px; padding:0 22px; border-radius:10px;
+               background:#FFFFFF; color:#171A21; font-size:15px; font-weight:600; }
+</style>
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="mark">
+      <span class="mark-badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4.5 16.8l5.2-8 3.9 4.9 5.9-7.6"/>
+        </svg>
+      </span>
+      <span class="mark-word">Northwind</span>
+    </div>
+    <ul class="menu">
+      <li>Product</li><li>Solutions</li><li>Pricing</li><li>Docs</li>
+    </ul>
+    <div class="header-end">
+      <span class="link-signin">Sign in</span>
+      <span class="cta-pill">Get started</span>
+    </div>
+  </header>
+
+  <section class="hero wrap">
+    <span class="badge">NEW — Realtime insights</span>
+    <div class="hero-title">Ship product decisions<br>with confidence</div>
+    <p class="hero-copy">Northwind turns scattered product signals into one live view, so your team stops guessing and starts shipping what actually moves the metric.</p>
+    <div class="hero-buttons">
+      <span class="btn btn-solid">Start free trial</span>
+      <span class="btn btn-outline">Book a demo</span>
+    </div>
+    <div class="hero-note">Trusted by 21,000+ teams shipping every week</div>
+  </section>
+
+  <section class="feature-row wrap">
+    <article class="feature">
+      <div class="feature-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#4B5ED8" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3.2l7.3 3.9v5.4c0 4.1-3 7.2-7.3 8.3-4.3-1.1-7.3-4.2-7.3-8.3V7.1z"/>
+          <path d="M9.3 12.1l1.9 2 3.5-3.8"/>
+        </svg>
+      </div>
+      <h3 class="feature-name">Audit ready</h3>
+      <p class="feature-body">SOC 2 controls, row level permissions and a full history of who changed which definition and when they did it.</p>
+    </article>
+    <article class="feature">
+      <div class="feature-icon">
+        <div style="width:21px;height:21px;border:1.7px solid #4B5ED8;"></div>
+      </div>
+      <h3 class="feature-name">Deep search</h3>
+      <p class="feature-body">Ask in plain language and get the cohort, the funnel step and the release that explains the change you are staring at.</p>
+    </article>
+    <article class="feature">
+      <div class="feature-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#4B5ED8" stroke-width="1.7" stroke-linecap="round">
+          <line x1="3" y1="20" x2="3" y2="10.2"/>
+          <line x1="9" y1="20" x2="9" y2="4.2"/>
+          <line x1="15" y1="20" x2="15" y2="13.2"/>
+          <line x1="21" y1="20" x2="21" y2="8.2"/>
+        </svg>
+      </div>
+      <h3 class="feature-name">Live metrics</h3>
+      <p class="feature-body">Every event lands in under a second, so the dashboard your team opens is the dashboard that is true right now.</p>
+    </article>
+  </section>
+
+  <section class="wrap">
+    <div class="promo">
+      <div class="promo-copy">
+        <div class="promo-title">Start your first dashboard today</div>
+        <div class="promo-line">Free for 14 days. No credit card, no sales call, cancel in one click.</div>
+      </div>
+      <span class="promo-btn">Create workspace</span>
+    </div>
+  </section>
+
+</body>
+</html>

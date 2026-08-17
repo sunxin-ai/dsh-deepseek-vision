@@ -1,0 +1,85 @@
+diff --git a/packages/host/apiproxy/src/api-proxy.ts b/packages/host/apiproxy/src/api-proxy.ts
+index bda99362b6..bcbf65f0fc 100644
+--- a/packages/host/apiproxy/src/api-proxy.ts
++++ b/packages/host/apiproxy/src/api-proxy.ts
+@@ -2482,17 +2482,15 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
+         const hasImage = content.some(part => part.type === 'image')
+         const admit = async (): Promise<RpcResponse<{ accepted: true }>> => {
+           try {
+-            if (hasImage) {
+-              const current = selectionFor(agent).current
+-              const modelInfo = await ctx.llm.resolveModelInfo(current.provider, current.model)
+-              if (modelInfo.inputModalities !== undefined && !modelInfo.inputModalities.includes('image')) {
+-                return err(request, {
+-                  code: 'attachment-error',
+-                  message: `Model "${current.model}" does not support image input.`,
+-                  details: { reason: 'MODEL_DOES_NOT_SUPPORT_IMAGES' },
+-                })
+-              }
+-            }
++            // LOCAL PATCH (dsh-deepseek-vision): 纯文本路由不再在准入处拒绝图片。
++            //
++            // 图片照常进持久消息与会话日志，界面显示的仍是一张图；纯文本适配器在序列化前
++            // 的最后一刻把图片块换成一行带 attachment= 的文字，模型据此调 deepseek_vision。
++            //
++            // 与 llm-deepseek/serialize.ts 的改动成对：两处必须同时存在或同时还原。
++            // 只还原这一处，粘图会被拒（回到原样，安全）；只还原那一处，图片会撞上
++            // UNSUPPORTED_CONTENT 而使会话无法继续。还原方式见
++            // 本插件的 patches/README.md。
+             const durable = await durablePromptContent(ctx, content)
+             const message: UserMessage = createUserMessage({ content: durable, source })
+             if (mode === 'steer') agent.steer(message)
+diff --git a/packages/llm/llm-deepseek/src/serialize.ts b/packages/llm/llm-deepseek/src/serialize.ts
+index 34fa214bb9..f597eb8103 100644
+--- a/packages/llm/llm-deepseek/src/serialize.ts
++++ b/packages/llm/llm-deepseek/src/serialize.ts
+@@ -60,11 +60,32 @@ function flattenText(blocks: ContentBlock[]): string {
+     .join('')
+ }
+ 
+-/** Reject core image content before any text-flattening path can silently erase it. */
+-function assertTextOnly(blocks: readonly ContentBlock[]): void {
+-  if (contentHasImage(blocks)) {
+-    throw new LlmError('The DeepSeek chat-completions adapter does not support image content.', 'UNSUPPORTED_CONTENT')
+-  }
++/**
++ * LOCAL PATCH (dsh-deepseek-vision)：图片内容不再抛错，而是在序列化前的最后一刻换成一行文字指针。
++ *
++ * 为什么放在这里：这是消息通往 DeepSeek 的最后一站。此前每一站 —— 持久化、会话日志、界面渲染
++ * —— 看到的都还是真正的图片块，所以用户在气泡里看到的仍是一张图，证据也完整留档。
++ * 放在更早的位置（准入检查、`agent/pre-step`）替换掉图片块，用户会看到一串路径而不是图。
++ *
++ * 这里只打印附件 id，**不推算任何文件路径**：命名规则完整地留在插件一侧，由 deepseek_vision 按 id 解析。
++ * 早期版本两边各写了一份路径规则，改一边就静默失配（指针指向不存在的文件）。
++ *
++ * 移除 dsh-deepseek-vision 时必须一并还原为原来的抛错版本，
++ * 还原方式见 本插件的 patches/README.md。
++ */
++function replaceImagesWithPointers(blocks: readonly ContentBlock[]): ContentBlock[] {
++  if (!contentHasImage(blocks)) return [...blocks]
++  return blocks.map((block) => {
++    if (block.type !== 'image') return block
++    const ref = block.attachment
++    // 只打印附件 id，不推算任何文件路径：路径命名规则完整地留在 dsh-deepseek-vision 一侧，
++    // 由 deepseek_vision 按 id 解析。早期版本两边各写了一份命名规则，改一边就静默失配。
++    return {
++      type: 'text' as const,
++      text: `[图片 ${ref.mediaType} ${ref.width}x${ref.height} attachment=${ref.attachmentId}]`
++        + '（本模型看不到图片内容。需要知道图上是什么，把这个 attachment= 值传给 deepseek_vision 工具。）',
++    }
++  })
+ }
+ 
+ /** Serialize one assistant message (text + reasoning + tool calls). */
+@@ -111,8 +132,9 @@ function serializeAssistant(message: Message): WireMessage {
+  */
+ export function serializeMessages(messages: Message[]): WireMessage[] {
+   const wire: WireMessage[] = []
+-  for (const message of messages) {
+-    assertTextOnly(message.content)
++  for (const original of messages) {
++    // LOCAL PATCH (dsh-deepseek-vision)：原为 assertTextOnly(message.content) 直接抛错。
++    const message = { ...original, content: replaceImagesWithPointers(original.content) }
+     if (message.role === 'system') {
+       wire.push({ role: 'system', content: flattenText(message.content) })
+       continue

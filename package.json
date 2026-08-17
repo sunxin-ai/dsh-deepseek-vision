@@ -1,0 +1,61 @@
+{
+  "name": "dsh-deepseek-vision",
+  "version": "0.1.0",
+  "description": "\u7ed9\u7eaf\u6587\u672c DSH \u6a21\u578b\u63a5\u4e0a\u89c6\u89c9\uff1a\u8865\u4e0a DSH \u7f3a\u7684\u90a3\u6761\u591a\u6a21\u6001\u8def\u7531\uff0c\u5f15\u64ce\u7528 Qwen\uff0c\u5b98\u65b9\u591a\u6a21\u6001\u4e0a\u7ebf\u5373\u81ea\u52a8\u8ba9\u4f4d\u3002",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "deepseek-harness",
+    "dsh-plugin",
+    "vision",
+    "design-qa"
+  ],
+  "exports": {
+    ".": "./lib/index.mjs",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./skills/*": "./skills/*"
+  },
+  "files": [
+    "lib",
+    "src",
+    "skills",
+    "patches",
+    "cordis.patch.yml",
+    "install.mjs",
+    "README.md",
+    "LICENSE"
+  ],
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "*",
+    "@deepseek-ai/dsh-attachment": "*",
+    "@deepseek-ai/dsh-llm": "*",
+    "@deepseek-ai/dsh-tools": "*",
+    "@deepseek-ai/schemastery": "*"
+  },
+  "engines": {
+    "node": "^22.19 || >=24"
+  },
+  "scripts": {
+    "build": "tsdown --entry src/index.ts --format esm --out-dir lib --dts false --no-config",
+    "install-plugin": "node install.mjs",
+    "restart": "node install.mjs --restart"
+  },
+  "author": "sunxin-ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sunxin-ai/dsh-deepseek-vision.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sunxin-ai/dsh-deepseek-vision/issues"
+  },
+  "homepage": "https://github.com/sunxin-ai/dsh-deepseek-vision#readme",
+  "main": "./lib/index.mjs",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "devDependencies": {
+    "tsdown": "^0.15.6"
+  }
+}

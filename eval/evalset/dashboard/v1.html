@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Revenue overview — v1 faithful</title>
+<style>
+  /* v1：照着 design.png 独立实现（flex 侧栏 / 自绘图标 / path 描述折线），不是 design.html 的副本。 */
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:1280px; height:800px; overflow:hidden; }
+  body {
+    background:#F1F3F8;
+    color:#16181D;
+    font-family:-apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    display:flex;
+  }
+
+  /* sidebar */
+  .sb { width:216px; flex:none; background:#FFFFFF; border-right:1px solid #E7E9EF; padding:22px 14px; }
+  .sb-brand { display:flex; align-items:center; padding:0 8px; margin-bottom:20px; }
+  .sb-logo { width:24px; height:24px; border-radius:7px; background:#4B5ED8;
+             display:flex; align-items:center; justify-content:center; margin-right:9px; }
+  .sb-logo svg { width:14px; height:14px; }
+  .sb-name { font-size:15px; font-weight:700; letter-spacing:-0.2px; }
+  .nv { height:38px; padding:0 10px; border-radius:9px; display:flex; align-items:center;
+        font-size:13px; font-weight:500; color:#6B7280; }
+  .nv svg { width:17px; height:17px; margin-right:11px; flex:none; }
+  .nv--current { background:#E9ECFB; color:#3444B2; font-weight:600; }
+  .sb-rule { margin:20px 0 0; border-top:1px solid #EEF0F5; padding-top:12px; }
+
+  /* main column */
+  .main { flex:1; padding:22px 26px; }
+  .topline { display:flex; align-items:flex-end; justify-content:space-between; }
+  .topline h1 { font-size:22px; font-weight:700; letter-spacing:-0.4px; }
+  .topline .meta { font-size:13px; color:#6B7280; margin-top:5px; }
+  .tools { display:flex; align-items:center; }
+  .picker { height:36px; padding:0 14px; border-radius:9px; background:#FFFFFF; border:1px solid #E7E9EF;
+            display:flex; align-items:center; font-size:13px; font-weight:500; color:#3F4652; margin-right:10px; }
+  .picker svg { width:15px; height:15px; margin-right:8px; }
+  .btn-export { height:36px; padding:0 16px; border-radius:9px; background:#4B5ED8; color:#FFFFFF;
+                font-size:13px; font-weight:600; display:flex; align-items:center; }
+
+  /* kpi row */
+  .kpis { margin-top:18px; display:flex; }
+  .kpi { flex:1 1 0; background:#FFFFFF; border:1px solid #E7E9EF; border-radius:14px; padding:16px 16px 18px; }
+  .kpi + .kpi { margin-left:16px; }
+  .kpi-cap { font-size:12px; font-weight:500; color:#6B7280; letter-spacing:0.1px; }
+  .kpi-num { margin-top:9px; font-size:28px; font-weight:700; letter-spacing:-0.9px; }
+  .kpi-delta { margin-top:10px; display:flex; align-items:center; }
+  .tag { height:21px; padding:0 8px; border-radius:6px; font-size:11px; font-weight:600;
+         display:flex; align-items:center; margin-right:8px; }
+  .tag--pos { background:#DFF6EB; color:#1F8452; }
+  .tag--neg { background:#FAE7E5; color:#BA372C; }
+  .kpi-vs { font-size:11px; color:#98A0AE; }
+
+  /* chart panel */
+  .panel-chart { margin-top:16px; background:#FFFFFF; border:1px solid #E7E9EF; border-radius:14px; padding:16px 18px 12px; }
+  .panel-top { display:flex; align-items:center; justify-content:space-between; }
+  .panel-h { font-size:15px; font-weight:700; letter-spacing:-0.2px; }
+  .keys { display:flex; }
+  .key { display:flex; align-items:center; font-size:12px; color:#6B7280; margin-left:16px; }
+  .key i { width:9px; height:9px; border-radius:3px; margin-right:6px; display:block; }
+  .canvas { margin-top:12px; }
+  .ticks { margin-top:6px; padding:0 2px; display:flex; justify-content:space-between;
+           font-size:11px; color:#98A0AE; }
+
+  /* table panel */
+  .panel-table { margin-top:16px; background:#FFFFFF; border:1px solid #E7E9EF; border-radius:14px; padding:16px 18px 8px; }
+  .grid { width:100%; border-collapse:collapse; margin-top:10px; }
+  .grid th { text-align:left; font-size:11px; font-weight:600; color:#98A0AE; letter-spacing:0.4px;
+             text-transform:uppercase; padding-bottom:9px; border-bottom:1px solid #EEF0F5; }
+  .grid td { font-size:13px; padding:11px 0; border-bottom:1px solid #F4F5F9; }
+  .grid tr:last-child td { border-bottom:none; }
+  .who { font-weight:600; }
+  .money { font-weight:600; }
+  .day { color:#6B7280; }
+  .flag { display:inline-flex; align-items:center; height:20px; padding:0 8px; border-radius:6px;
+          font-size:11px; font-weight:600; }
+  .flag--ok { background:#DFF6EB; color:#1F8452; }
+  .flag--wait { background:#FDF1DD; color:#8A5A16; }
+</style>
+</head>
+<body>
+
+  <aside class="sb">
+    <div class="sb-brand">
+      <span class="sb-logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4.5 16.8l5.2-8 3.9 4.9 5.9-7.6"/>
+        </svg>
+      </span>
+      <span class="sb-name">Northwind</span>
+    </div>
+
+    <div class="nv nv--current">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+        <rect x="3" y="3" width="7" height="8" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/>
+        <rect x="3" y="15" width="7" height="6" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/>
+      </svg>Overview
+    </div>
+    <div class="nv">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <line x1="4" y1="19" x2="4" y2="9"/><line x1="10" y1="19" x2="10" y2="4"/>
+        <line x1="16" y1="19" x2="16" y2="13"/><line x1="2" y1="19" x2="22" y2="19"/>
+      </svg>Reports
+    </div>
+    <div class="nv">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="8" r="3.3"/><path d="M3.5 19c0-3.1 2.6-5.1 5.5-5.1s5.5 2 5.5 5.1"/>
+        <line x1="16" y1="8.5" x2="21" y2="8.5"/><line x1="18.5" y1="6" x2="18.5" y2="11"/>
+      </svg>Customers
+    </div>
+    <div class="nv">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="5" width="18" height="15" rx="3"/><line x1="3" y1="10" x2="21" y2="10"/>
+        <line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/>
+      </svg>Invoices
+    </div>
+    <div class="nv">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M12 3.1v2.9M12 18v2.9M3.1 12H6M18 12h2.9M5.7 5.7l2 2M16.3 16.3l2 2M18.3 5.7l-2 2M7.7 16.3l-2 2"/>
+      </svg>Settings
+    </div>
+
+    <div class="sb-rule">
+      <div class="nv">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M9.7 9.5a2.4 2.4 0 1 1 3.3 2.2c-.6.3-1 .8-1 1.5v.4"/><path d="M12 17.1v.3"/>
+        </svg>Help center
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topline">
+      <div>
+        <h1>Revenue overview</h1>
+        <div class="meta">Updated 4 minutes ago · All workspaces</div>
+      </div>
+      <div class="tools">
+        <div class="picker">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="5" width="18" height="16" rx="3"/><line x1="3" y1="10" x2="21" y2="10"/>
+            <line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/>
+          </svg>Last 30 days
+        </div>
+        <div class="btn-export">Export</div>
+      </div>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi">
+        <div class="kpi-cap">Net revenue</div>
+        <div class="kpi-num">$284,910</div>
+        <div class="kpi-delta"><span class="tag tag--pos">+12.4%</span><span class="kpi-vs">vs prior 30d</span></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-cap">Active accounts</div>
+        <div class="kpi-num">3,948</div>
+        <div class="kpi-delta"><span class="tag tag--pos">+3.1%</span><span class="kpi-vs">vs prior 30d</span></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-cap">Avg contract value</div>
+        <div class="kpi-num">$1,072</div>
+        <div class="kpi-delta"><span class="tag tag--neg">−1.8%</span><span class="kpi-vs">vs prior 30d</span></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-cap">Churned MRR</div>
+        <div class="kpi-num">$7,260</div>
+        <div class="kpi-delta"><span class="tag tag--neg">−0.6%</span><span class="kpi-vs">vs prior 30d</span></div>
+      </div>
+    </div>
+
+    <div class="panel-chart">
+      <div class="panel-top">
+        <div class="panel-h">Revenue by week</div>
+        <div class="keys">
+          <span class="key"><i style="background:#4B5ED8"></i>This year</span>
+          <span class="key"><i style="background:#C8CEE4"></i>Last year</span>
+        </div>
+      </div>
+      <div class="canvas">
+        <svg width="972" height="226" viewBox="0 0 972 226" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <g stroke="#F0F2F7" stroke-width="1">
+            <path d="M0 9h972"/><path d="M0 63h972"/><path d="M0 117h972"/><path d="M0 171h972"/>
+          </g>
+          <path d="M0 225h972" stroke="#E7E9EF" stroke-width="1"/>
+          <path d="M10 173 L130 159 L250 168 L370 129 L490 138 L610 97 L730 83 L850 67 L962 39"
+                stroke="#C8CEE4" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M10 194 L130 173 L250 182 L370 138 L490 111 L610 120 L730 71 L850 51 L962 23"
+                stroke="#4B5ED8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="962" cy="23" r="4.5" fill="#4B5ED8"/>
+        </svg>
+      </div>
+      <div class="ticks">
+        <span>W1</span><span>W2</span><span>W3</span><span>W4</span><span>W5</span>
+        <span>W6</span><span>W7</span><span>W8</span><span>W9</span>
+      </div>
+    </div>
+
+    <div class="panel-table">
+      <div class="panel-h">Recent invoices</div>
+      <table class="grid">
+        <colgroup><col style="width:38%"><col style="width:20%"><col style="width:22%"><col style="width:20%"></colgroup>
+        <tr>
+          <th>Account</th><th>Status</th><th>Amount</th><th>Issued</th>
+        </tr>
+        <tr>
+          <td class="who">Halcyon Labs</td>
+          <td><span class="flag flag--ok">Paid</span></td>
+          <td class="money">$18,400</td>
+          <td class="day">Mar 09</td>
+        </tr>
+        <tr>
+          <td class="who">Brightpath Group</td>
+          <td><span class="flag flag--wait">Due</span></td>
+          <td class="money">$9,120</td>
+          <td class="day">Mar 07</td>
+        </tr>
+        <tr>
+          <td class="who">Kestrel Analytics</td>
+          <td><span class="flag flag--ok">Paid</span></td>
+          <td class="money">$24,750</td>
+          <td class="day">Mar 04</td>
+        </tr>
+      </table>
+    </div>
+  </main>
+
+</body>
+</html>

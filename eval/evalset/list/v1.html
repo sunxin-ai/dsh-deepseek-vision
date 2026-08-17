@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Messages — v1 faithful</title>
+<style>
+  /* v1：照着 design.png 独立实现（ul/li + 绝对定位分隔线 + 自绘图标），不是 design.html 的副本。 */
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:393px; height:852px; overflow:hidden; }
+  body {
+    background:#FFFFFF;
+    color:#16181D;
+    font-family:-apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    display:flex; flex-direction:column;
+  }
+
+  /* header */
+  .hdr { padding:58px 20px 0; display:flex; align-items:center; }
+  .hdr h1 { flex:1; font-size:26px; font-weight:700; letter-spacing:-0.7px; }
+  .pencil { width:34px; height:34px; border-radius:50%; background:#F1F2F6;
+            display:flex; align-items:center; justify-content:center; }
+  .pencil svg { width:18px; height:18px; }
+
+  /* search */
+  .finder { margin:16px 20px 0; height:40px; border-radius:12px; background:#F1F2F6;
+            padding:0 12px; display:flex; align-items:center; }
+  .finder svg { width:17px; height:17px; margin-right:9px; }
+  .finder em { font-style:normal; font-size:14px; color:#9096A2; }
+
+  /* filters */
+  .filters { margin-top:14px; padding:0 20px; display:flex; }
+  .f { height:30px; padding:0 14px; border-radius:999px; background:#F1F2F6; display:flex; align-items:center;
+       font-size:13px; font-weight:500; color:#5B6270; margin-right:8px; }
+  .f--sel { background:#16181D; color:#FFFFFF; font-weight:600; }
+
+  /* threads */
+  .threads { margin-top:14px; list-style:none; }
+  .thread { position:relative; padding:13px 20px 14px; display:flex; align-items:center; }
+  .thread:last-child { padding-bottom:13px; }
+  .thread:not(:last-child)::after { content:""; position:absolute; left:76px; right:0; bottom:0;
+                                    height:1px; background:#F0F1F5; }
+  .face { width:44px; height:44px; border-radius:50%; flex:none; margin-right:12px;
+          display:flex; align-items:center; justify-content:center;
+          color:#FFFFFF; font-size:15px; font-weight:600; letter-spacing:0.2px; }
+  .body { flex:1; min-width:0; }
+  .who { font-size:15px; font-weight:600; letter-spacing:-0.2px; }
+  .snip { margin-top:3px; font-size:13px; color:#7A828F; overflow:hidden;
+          white-space:nowrap; text-overflow:ellipsis; }
+  .meta { flex:none; text-align:right; }
+  .clock { font-size:11px; color:#9096A2; }
+  .badge { width:8px; height:8px; border-radius:50%; background:#4B5ED8; margin:7px 0 0 auto; }
+  .badge--none { background:transparent; }
+  .end { margin-top:16px; text-align:center; font-size:12px; color:#A6ACB8; }
+
+  /* tab bar */
+  .bar { margin-top:auto; height:76px; background:#FCFCFD; border-top:1px solid #EDEEF2;
+         padding-top:11px; display:flex; }
+  .t { flex:1; text-align:center; }
+  .t svg { width:23px; height:23px; display:block; margin:0 auto 5px; }
+  .t b { display:block; font-size:10px; font-weight:500; color:#9096A2; }
+  .t--sel b { color:#16181D; font-weight:600; }
+</style>
+</head>
+<body>
+
+  <div class="hdr">
+    <h1>Messages</h1>
+    <span class="pencil">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#16181D" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="4" y1="20" x2="20" y2="20"/>
+        <path d="M15.6 4.6l3.8 3.8L9.1 18.9l-4.9 1.05 1.05-4.9z"/>
+      </svg>
+    </span>
+  </div>
+
+  <div class="finder">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#9096A2" stroke-width="1.9" stroke-linecap="round">
+      <circle cx="11" cy="11" r="6.4"/><line x1="15.7" y1="15.7" x2="20" y2="20"/>
+    </svg>
+    <em>Search messages</em>
+  </div>
+
+  <div class="filters">
+    <span class="f f--sel">All</span>
+    <span class="f">Unread</span>
+    <span class="f">Groups</span>
+    <span class="f">Archived</span>
+  </div>
+
+  <ul class="threads">
+    <li class="thread">
+      <span class="face" style="background:#4B5ED8">AC</span>
+      <div class="body">
+        <div class="who">Avery Chen</div>
+        <div class="snip">Design review moved to Thursday</div>
+      </div>
+      <div class="meta"><div class="clock">09:42</div><div class="badge"></div></div>
+    </li>
+    <li class="thread">
+      <span class="face" style="background:#EA8053">MW</span>
+      <div class="body">
+        <div class="who">Marcus Webb</div>
+        <div class="snip">Sent the updated contract for signing</div>
+      </div>
+      <div class="meta"><div class="clock">09:18</div><div class="badge badge--none"></div></div>
+    </li>
+    <li class="thread">
+      <span class="face" style="background:#2FA37A">PR</span>
+      <div class="body">
+        <div class="who">Priya Raman</div>
+        <div class="snip">Can you look at the new onboarding flow?</div>
+      </div>
+      <div class="meta"><div class="clock">08:55</div><div class="badge"></div></div>
+    </li>
+    <li class="thread">
+      <span class="face" style="background:#8B72D9">OS</span>
+      <div class="body">
+        <div class="who">Ops standup</div>
+        <div class="snip">Deploy window is confirmed for 14:00</div>
+      </div>
+      <div class="meta"><div class="clock">Yest</div><div class="badge badge--none"></div></div>
+    </li>
+    <li class="thread">
+      <span class="face" style="background:#3E8ED0">TF</span>
+      <div class="body">
+        <div class="who">Tomás Ferreira</div>
+        <div class="snip">Thanks, that fixed it on my side too</div>
+      </div>
+      <div class="meta"><div class="clock">Yest</div><div class="badge badge--none"></div></div>
+    </li>
+    <li class="thread">
+      <span class="face" style="background:#C2557E">NO</span>
+      <div class="body">
+        <div class="who">Nadia Osei</div>
+        <div class="snip">Invoice 4471 was approved this morning</div>
+      </div>
+      <div class="meta"><div class="clock">Mon</div><div class="badge"></div></div>
+    </li>
+    <li class="thread">
+      <span class="face" style="background:#5E6675">SR</span>
+      <div class="body">
+        <div class="who">Support rotation</div>
+        <div class="snip">Three tickets need triage before noon</div>
+      </div>
+      <div class="meta"><div class="clock">Mon</div><div class="badge badge--none"></div></div>
+    </li>
+  </ul>
+  <div class="end">You are all caught up</div>
+
+  <nav class="bar">
+    <div class="t t--sel">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#16181D" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20.4 11.6c0 4-3.7 7.3-8.4 7.3-1 0-1.9-.15-2.8-.42L4.1 20l1.25-3.55C4.15 15.05 3.6 13.4 3.6 11.6c0-4 3.7-7.3 8.4-7.3s8.4 3.3 8.4 7.3z"/>
+      </svg><b>Chats</b>
+    </div>
+    <div class="t">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#9096A2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="8" r="3.5"/><path d="M3 19c0-3.2 2.8-5.3 6-5.3s6 2.1 6 5.3"/>
+        <path d="M16.4 6.3a3.1 3.1 0 0 1 0 5.9"/><path d="M18.1 18.6c0-2.3-.9-3.9-2.4-4.7"/>
+      </svg><b>People</b>
+    </div>
+    <div class="t">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#9096A2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 8.6a6 6 0 0 0-12 0c0 4.9-2 6.4-2 6.4h16s-2-1.5-2-6.4z"/>
+        <path d="M10.4 19a1.9 1.9 0 0 0 3.2 0"/>
+      </svg><b>Alerts</b>
+    </div>
+    <div class="t">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#9096A2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="8.5" r="3.7"/><path d="M4.6 20c0-3.5 3.3-5.9 7.4-5.9s7.4 2.4 7.4 5.9"/>
+      </svg><b>Profile</b>
+    </div>
+  </nav>
+
+</body>
+</html>

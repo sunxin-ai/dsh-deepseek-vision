@@ -1,0 +1,16 @@
+# 安装产物
+/node_modules
+
+# 环境文件可能含密钥 —— 绝不入库。带后缀的一并排除（.env.bailian 这类）
+/.env
+/.env.*
+
+# eval 的可再生产物
+/eval/**/crops/
+/eval/**/results*/
+/eval/**/pairs/
+/eval/**/tiles/
+/eval/**/composite/
+/eval/**/.playwright/
+
+.DS_Store

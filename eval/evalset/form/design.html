@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Shipping details — form (design source of truth)</title>
+<style>
+  /* 设计稿真值实现：渲染出的 design.png 即「设计稿」。
+     v1.html 必须照着 design.png 独立重写，不得从本文件复制。 */
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:393px; height:852px; overflow:hidden; }
+  body {
+    background:#FFFFFF;
+    color:#16181D;
+    font-family:-apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    display:flex; flex-direction:column;
+  }
+
+  /* ---- top bar + progress ---- */
+  .bar { padding:56px 20px 0; display:flex; align-items:center; justify-content:space-between; }
+  .back { width:34px; height:34px; border-radius:17px; border:1px solid #E7E9EF; display:grid; place-items:center; }
+  .back svg { width:17px; height:17px; }
+  .barTitle { font-size:15px; font-weight:600; letter-spacing:-0.2px; }
+  .step { font-size:12px; font-weight:500; color:#8A909C; }
+  .track { margin:16px 20px 0; height:4px; border-radius:2px; background:#EDEEF2; }
+  .fill { width:66%; height:4px; border-radius:2px; background:#4B5ED8; }
+
+  /* ---- heading ---- */
+  .head { padding:18px 20px 0; }
+  .h1 { font-size:24px; font-weight:700; letter-spacing:-0.6px; }
+  .lede { margin-top:6px; font-size:13px; line-height:1.5; color:#7A828F; }
+
+  /* ---- fields ---- */
+  .fields { padding:16px 20px 0; }
+  .field { margin-bottom:12px; }
+  .lab { font-size:12px; font-weight:600; color:#4A5160; letter-spacing:0.1px; }
+  .inp { margin-top:6px; height:46px; border:1px solid #DDE0E7; border-radius:12px;
+         padding:0 13px; display:flex; align-items:center; font-size:14px; color:#16181D; }
+  .inp.empty { color:#A6ACB8; }
+  .sel { margin-top:6px; height:46px; border:1px solid #DDE0E7; border-radius:12px;
+         padding:0 13px; display:flex; align-items:center; justify-content:space-between; font-size:14px; }
+  .sel svg { width:16px; height:16px; }
+
+  /* ---- checkboxes ---- */
+  .checks { margin:24px 20px 0; }
+  .ck { display:flex; align-items:center; gap:11px; margin-bottom:14px; }
+  .box { width:20px; height:20px; border-radius:6px; border:1.5px solid #C9CDD6; flex:none; }
+  .box.on { background:#4B5ED8; border-color:#4B5ED8; display:grid; place-items:center; }
+  .box.on svg { width:12px; height:12px; }
+  .ckLab { font-size:13.5px; color:#3F4652; }
+
+  /* ---- footer ---- */
+  .foot { margin-top:auto; padding:0 20px 26px; }
+  .note { font-size:11.5px; line-height:1.5; color:#9096A2; text-align:center; margin-bottom:12px; }
+  .primary { height:50px; border-radius:12px; background:#4B5ED8; color:#FFFFFF;
+             font-size:15px; font-weight:600; display:grid; place-items:center; }
+  .secondary { margin-top:10px; height:50px; border-radius:12px; background:#FFFFFF; border:1px solid #DDE0E7;
+               color:#3F4652; font-size:15px; font-weight:600; display:grid; place-items:center; }
+</style>
+</head>
+<body>
+
+  <div class="bar">
+    <div class="back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#16181D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14.5 5L8 12l6.5 7"/>
+      </svg>
+    </div>
+    <div class="barTitle">Checkout</div>
+    <div class="step">Step 2 of 3</div>
+  </div>
+
+  <div class="track"><div class="fill"></div></div>
+
+  <div class="head">
+    <div class="h1">Shipping details</div>
+    <div class="lede">Where should we send your order? You can change this before the final step.</div>
+  </div>
+
+  <div class="fields">
+    <div class="field">
+      <div class="lab">Full name</div>
+      <div class="inp">Alex Moreau</div>
+    </div>
+    <div class="field">
+      <div class="lab">Email address</div>
+      <div class="inp">alex.moreau@northwind.io</div>
+    </div>
+    <div class="field">
+      <div class="lab">Country or region</div>
+      <div class="sel">
+        <span>United Kingdom</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 9.5l6 6 6-6"/>
+        </svg>
+      </div>
+    </div>
+    <div class="field">
+      <div class="lab">Postal code</div>
+      <div class="inp empty">e.g. EC1A 4NP</div>
+    </div>
+  </div>
+
+  <div class="checks">
+    <div class="ck">
+      <div class="box on">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12.5l4.5 4.5L19 7"/>
+        </svg>
+      </div>
+      <div class="ckLab">Save this address for next time</div>
+    </div>
+    <div class="ck">
+      <div class="box"></div>
+      <div class="ckLab">Email me delivery updates</div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <div class="note">By continuing you agree to the delivery terms.<br>Orders placed after 18:00 ship the next working day.</div>
+    <div class="primary">Continue to payment</div>
+    <div class="secondary">Back to cart</div>
+  </div>
+
+</body>
+</html>

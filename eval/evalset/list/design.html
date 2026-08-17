@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Messages — list (design source of truth)</title>
+<style>
+  /* 设计稿真值实现：渲染出的 design.png 即「设计稿」。
+     v1.html 必须照着 design.png 独立重写，不得从本文件复制。 */
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:393px; height:852px; overflow:hidden; }
+  body {
+    background:#FFFFFF;
+    color:#16181D;
+    font-family:-apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    display:flex; flex-direction:column;
+  }
+
+  /* ---- header ---- */
+  .top { padding:58px 20px 0; display:flex; align-items:center; justify-content:space-between; }
+  .title { font-size:26px; font-weight:700; letter-spacing:-0.7px; }
+  .compose { width:34px; height:34px; border-radius:17px; background:#F1F2F6; display:grid; place-items:center; }
+  .compose svg { width:18px; height:18px; }
+
+  /* ---- search ---- */
+  .search { margin:16px 20px 0; height:40px; border-radius:12px; background:#F1F2F6;
+            display:flex; align-items:center; gap:9px; padding:0 12px; }
+  .search svg { width:17px; height:17px; }
+  .ph { font-size:14px; color:#9096A2; }
+
+  /* ---- filter chips ---- */
+  .chips { margin-top:14px; padding:0 20px; display:flex; gap:8px; }
+  .chip { height:30px; padding:0 14px; border-radius:15px; background:#F1F2F6;
+          display:flex; align-items:center; font-size:13px; font-weight:500; color:#5B6270; }
+  .chip.on { background:#16181D; color:#FFFFFF; font-weight:600; }
+
+  /* ---- rows ---- */
+  .list { margin-top:14px; }
+  .row { padding:13px 20px; display:flex; align-items:center; gap:12px; }
+  .av { width:44px; height:44px; border-radius:22px; display:grid; place-items:center;
+        color:#FFFFFF; font-size:15px; font-weight:600; letter-spacing:0.2px; flex:none; }
+  .mid { flex:1; min-width:0; }
+  .nm { font-size:15px; font-weight:600; letter-spacing:-0.2px; }
+  .pv { margin-top:3px; font-size:13px; color:#7A828F; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .right { display:flex; flex-direction:column; align-items:flex-end; gap:7px; flex:none; }
+  .tm { font-size:11px; color:#9096A2; }
+  .dot { width:8px; height:8px; border-radius:4px; background:#4B5ED8; }
+  .dot.off { background:transparent; }
+  .sep { height:1px; background:#F0F1F5; margin-left:76px; }
+  .caught { margin-top:16px; text-align:center; font-size:12px; color:#A6ACB8; }
+
+  /* ---- tab bar ---- */
+  .tabs { margin-top:auto; height:76px; border-top:1px solid #EDEEF2; background:#FCFCFD;
+          display:flex; align-items:flex-start; padding-top:11px; }
+  .tab { flex:1; display:flex; flex-direction:column; align-items:center; gap:5px; }
+  .tab svg { width:23px; height:23px; }
+  .tab span { font-size:10px; font-weight:500; color:#9096A2; }
+  .tab.on span { color:#16181D; font-weight:600; }
+</style>
+</head>
+<body>
+
+  <div class="top">
+    <div class="title">Messages</div>
+    <div class="compose">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#16181D" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 20h16"/><path d="M15.5 4.5l4 4L9 19l-5 1 1-5z"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="search">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#9096A2" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="6.5"/><path d="M15.8 15.8L20 20"/>
+    </svg>
+    <div class="ph">Search messages</div>
+  </div>
+
+  <div class="chips">
+    <div class="chip on">All</div>
+    <div class="chip">Unread</div>
+    <div class="chip">Groups</div>
+    <div class="chip">Archived</div>
+  </div>
+
+  <div class="list">
+    <div class="row">
+      <div class="av" style="background:#4B5ED8">AC</div>
+      <div class="mid"><div class="nm">Avery Chen</div><div class="pv">Design review moved to Thursday</div></div>
+      <div class="right"><div class="tm">09:42</div><div class="dot"></div></div>
+    </div>
+    <div class="sep"></div>
+    <div class="row">
+      <div class="av" style="background:#EA8053">MW</div>
+      <div class="mid"><div class="nm">Marcus Webb</div><div class="pv">Sent the updated contract for signing</div></div>
+      <div class="right"><div class="tm">09:18</div><div class="dot off"></div></div>
+    </div>
+    <div class="sep"></div>
+    <div class="row">
+      <div class="av" style="background:#2FA37A">PR</div>
+      <div class="mid"><div class="nm">Priya Raman</div><div class="pv">Can you look at the new onboarding flow?</div></div>
+      <div class="right"><div class="tm">08:55</div><div class="dot"></div></div>
+    </div>
+    <div class="sep"></div>
+    <div class="row">
+      <div class="av" style="background:#8B72D9">OS</div>
+      <div class="mid"><div class="nm">Ops standup</div><div class="pv">Deploy window is confirmed for 14:00</div></div>
+      <div class="right"><div class="tm">Yest</div><div class="dot off"></div></div>
+    </div>
+    <div class="sep"></div>
+    <div class="row">
+      <div class="av" style="background:#3E8ED0">TF</div>
+      <div class="mid"><div class="nm">Tomás Ferreira</div><div class="pv">Thanks, that fixed it on my side too</div></div>
+      <div class="right"><div class="tm">Yest</div><div class="dot off"></div></div>
+    </div>
+    <div class="sep"></div>
+    <div class="row">
+      <div class="av" style="background:#C2557E">NO</div>
+      <div class="mid"><div class="nm">Nadia Osei</div><div class="pv">Invoice 4471 was approved this morning</div></div>
+      <div class="right"><div class="tm">Mon</div><div class="dot"></div></div>
+    </div>
+    <div class="sep"></div>
+    <div class="row">
+      <div class="av" style="background:#5E6675">SR</div>
+      <div class="mid"><div class="nm">Support rotation</div><div class="pv">Three tickets need triage before noon</div></div>
+      <div class="right"><div class="tm">Mon</div><div class="dot off"></div></div>
+    </div>
+    <div class="caught">You are all caught up</div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab on">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#16181D" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20.5 11.5c0 4.1-3.8 7.4-8.5 7.4-1 0-2-.15-2.9-.42L4 20l1.3-3.6C4.2 15.1 3.5 13.4 3.5 11.5 3.5 7.4 7.3 4.1 12 4.1s8.5 3.3 8.5 7.4z"/>
+      </svg><span>Chats</span>
+    </div>
+    <div class="tab">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#9096A2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="8" r="3.4"/><path d="M3 19c0-3.1 2.7-5.2 6-5.2s6 2.1 6 5.2"/><path d="M16.5 6.2a3.2 3.2 0 0 1 0 6"/><path d="M18 18.6c0-2.4-.9-4-2.4-4.8"/>
+      </svg><span>People</span>
+    </div>
+    <div class="tab">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#9096A2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 8.5a6 6 0 1 0-12 0c0 5-2 6.5-2 6.5h16s-2-1.5-2-6.5z"/><path d="M10.3 19a2 2 0 0 0 3.4 0"/>
+      </svg><span>Alerts</span>
+    </div>
+    <div class="tab">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#9096A2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="8.5" r="3.6"/><path d="M4.5 20c0-3.6 3.4-6 7.5-6s7.5 2.4 7.5 6"/>
+      </svg><span>Profile</span>
+    </div>
+  </div>
+
+</body>
+</html>

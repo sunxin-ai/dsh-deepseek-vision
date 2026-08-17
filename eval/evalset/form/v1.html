@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Shipping details — v1 faithful</title>
+<style>
+  /* v1：照着 design.png 独立实现（真实 input/select/checkbox + appearance:none 重置），
+     不是 design.html 的副本。 */
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:393px; height:852px; overflow:hidden; }
+  body {
+    background:#FFFFFF;
+    color:#16181D;
+    font-family:-apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    display:flex; flex-direction:column;
+  }
+  input, select, button { font:inherit; color:inherit; }
+
+  /* top bar */
+  .navbar { padding:56px 20px 0; display:flex; align-items:center; justify-content:space-between; }
+  .goback { width:34px; height:34px; border-radius:50%; border:1px solid #E7E9EF;
+            display:flex; align-items:center; justify-content:center; }
+  .goback svg { width:17px; height:17px; }
+  .navbar-title { font-size:15px; font-weight:600; letter-spacing:-0.2px; }
+  .navbar-step { font-size:12px; font-weight:500; color:#8A909C; }
+
+  /* progress */
+  .progress { margin:16px 20px 0; height:4px; background:#EDEEF2; border-radius:2px; overflow:hidden; }
+  .progress-done { height:100%; width:66%; background:#4B5ED8; border-radius:2px; }
+
+  /* heading */
+  .intro { padding:18px 20px 0; }
+  .intro-title { font-size:24px; font-weight:700; letter-spacing:-0.6px; }
+  .intro-copy { margin-top:6px; font-size:13px; line-height:1.5; color:#7A828F; }
+
+  /* form controls */
+  .form { padding:16px 20px 0; }
+  .row { margin-bottom:12px; }
+  .row > label { display:block; font-size:12px; font-weight:600; color:#4A5160; letter-spacing:0.1px; }
+  .control { margin-top:6px; position:relative; }
+  .control input, .control select {
+    width:100%; height:46px; padding:0 13px; border:1px solid #DDE0E7; border-radius:12px;
+    background:#FFFFFF; font-size:14px; -webkit-appearance:none; appearance:none; outline:none;
+  }
+  .control input::placeholder { color:#A6ACB8; }
+  .caret { position:absolute; right:13px; top:15px; width:16px; height:16px; pointer-events:none; }
+
+  /* checkboxes */
+  .options { margin:24px 20px 0; }
+  .opt { display:flex; align-items:center; margin-bottom:14px; }
+  .opt input { position:absolute; opacity:0; width:0; height:0; }
+  .tick { width:20px; height:20px; border-radius:6px; border:1.5px solid #C9CDD6; flex:none;
+          margin-right:11px; display:flex; align-items:center; justify-content:center; }
+  .tick svg { width:12px; height:12px; visibility:hidden; }
+  .opt input:checked + .tick { background:#4B5ED8; border-color:#4B5ED8; }
+  .opt input:checked + .tick svg { visibility:visible; }
+  .opt span { font-size:13.5px; color:#3F4652; }
+
+  /* footer */
+  .actions { margin-top:auto; padding:0 20px 26px; }
+  .smallprint { margin-bottom:12px; font-size:11.5px; line-height:1.5; color:#9096A2; text-align:center; }
+  .actions button { display:block; width:100%; height:50px; border:0; border-radius:12px;
+                    font-size:15px; font-weight:600; -webkit-appearance:none; appearance:none; }
+  .go { background:#4B5ED8; color:#FFFFFF; }
+  .actions .back { margin-top:10px; background:#FFFFFF; color:#3F4652; border:1px solid #DDE0E7; }
+</style>
+</head>
+<body>
+
+  <div class="navbar">
+    <span class="goback">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#16181D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14.4 4.9L7.9 12l6.5 7.1"/>
+      </svg>
+    </span>
+    <span class="navbar-title">Checkout</span>
+    <span class="navbar-step">Step 2 of 3</span>
+  </div>
+
+  <div class="progress"><div class="progress-done"></div></div>
+
+  <div class="intro">
+    <div class="intro-title">Shipping details</div>
+    <div class="intro-copy">Where should we send your order? You can change this before the final step.</div>
+  </div>
+
+  <div class="form">
+    <div class="row">
+      <label for="fname">Full name</label>
+      <div class="control"><input id="fname" type="text" value="Alex Moreau"></div>
+    </div>
+    <div class="row">
+      <label for="mail">Email address</label>
+      <div class="control"><input id="mail" type="email" value="alex.moreau@northwind.io"></div>
+    </div>
+    <div class="row">
+      <label for="country">Country or region</label>
+      <div class="control">
+        <select id="country"><option>United Kingdom</option></select>
+        <svg class="caret" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6.2 9.6L12 15.4l5.8-5.8"/>
+        </svg>
+      </div>
+    </div>
+    <div class="row">
+      <label for="zip">Postal code</label>
+      <div class="control"><input id="zip" type="text" placeholder="e.g. EC1A 4NP"></div>
+    </div>
+  </div>
+
+  <div class="options">
+    <label class="opt">
+      <input type="checkbox" checked>
+      <span class="tick">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5.2 12.6l4.4 4.4L18.9 7.2"/>
+        </svg>
+      </span>
+      <span>Save this address for next time</span>
+    </label>
+    <label class="opt">
+      <input type="checkbox">
+      <span class="tick">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5.2 12.6l4.4 4.4L18.9 7.2"/>
+        </svg>
+      </span>
+      <span>Email me delivery updates</span>
+    </label>
+  </div>
+
+  <div class="actions">
+    <div class="smallprint">By continuing you agree to the delivery terms.<br>Orders placed after 18:00 ship the next working day.</div>
+    <button class="go">Continue to payment</button>
+    <button class="back">Back to cart</button>
+  </div>
+
+</body>
+</html>
