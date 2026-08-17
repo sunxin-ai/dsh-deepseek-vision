@@ -19,9 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-patches/dsh-local.patch contains diff fragments of DeepSeek Harness
-(https://github.com/deepseek-ai/deepseek-harness), which is MIT licensed,
-Copyright (c) 2026 DeepSeek. Those fragments remain under that license.

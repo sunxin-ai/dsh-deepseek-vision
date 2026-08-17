@@ -23,7 +23,8 @@
     "cordis.patch.yml",
     "install.mjs",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "NOTICE"
   ],
   "peerDependencies": {
     "@deepseek-ai/cordis": "*",

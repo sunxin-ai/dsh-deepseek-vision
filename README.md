@@ -195,7 +195,7 @@ llm-pi-ai:
 ### 关于粘贴图片（可选）
 
 只用「文件路径 / URL / 附件 id」的话跳过。要让**对话框里粘贴的图**能用，
-需要给 DSH 本体打两处补丁，见 [`patches/README.md`](patches/README.md)。
+需要给 DSH 本体打两处补丁，见 [`patches/README.md`](patches/README.md)。上游片段的归属见 [NOTICE](NOTICE)。
 **两处必须同时存在或同时还原。**
 
 ## 配置
