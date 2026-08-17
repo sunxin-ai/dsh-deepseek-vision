@@ -1,7 +1,7 @@
 {
   "name": "dsh-deepseek-vision",
   "version": "0.1.0",
-  "description": "\u7ed9\u7eaf\u6587\u672c DSH \u6a21\u578b\u63a5\u4e0a\u89c6\u89c9\uff1a\u8865\u4e0a DSH \u7f3a\u7684\u90a3\u6761\u591a\u6a21\u6001\u8def\u7531\uff0c\u5f15\u64ce\u7528 Qwen\uff0c\u5b98\u65b9\u591a\u6a21\u6001\u4e0a\u7ebf\u5373\u81ea\u52a8\u8ba9\u4f4d\u3002",
+  "description": "给纯文本 DSH 模型接上视觉：补上 DSH 缺的那条多模态路由，引擎用 Qwen，官方多模态上线即自动让位。",
   "type": "module",
   "license": "MIT",
   "keywords": [
@@ -11,9 +11,7 @@
     "design-qa"
   ],
   "exports": {
-    ".": "./lib/index.js",
-    "./cordis.patch.yml": "./cordis.patch.yml",
-    "./skills/*": "./skills/*"
+    ".": "./lib/index.js"
   },
   "files": [
     "lib",

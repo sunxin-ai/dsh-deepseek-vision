@@ -12,11 +12,15 @@
  *   node install.mjs --no-patches         不给 DSH 本体打补丁（粘贴图片将仍被拒绝）
  *   node install.mjs --revert-patches     还原本体补丁并退出
  *   node install.mjs --restart            只重启，可从 dsh 自己的进程内部调用
- *                                         （加 --force 可无视「重启会丢密钥」的拦截）
+ *                                         （加 --force 可无视重启前体检的拦截）
+ *
+ * 重启相关的环境变量（都只在自动探测不成时才需要）：
+ *   DSH_PROCESS_PATTERN  用来认出 dsh 进程的命令行片段
+ *   DSH_CWD              dsh 的工作目录（Windows 上没有 /proc 也没有 lsof，必须给）
+ *   DSH_RESTART_CMD      dsh 的完整启动命令
  *
  * **本体补丁默认就打**，且自动定位 DSH —— 不需要源码仓库，npm 装的也认。
  * 打不上就硬报错并以非零码退出：装完粘贴图片被拒、脚本却显示成功，是最难查的一类失败。
- * `--with-patches` 作为空操作保留，写了它也不会出错。
  *
  * 平台差异只剩「列出进程」一处需要分支，其余用 Node 原生 API 抹平。
  * @module dsh-deepseek-vision/install
@@ -34,6 +38,9 @@ const run = promisify(execFile)
 const HERE = dirname(fileURLToPath(import.meta.url))
 const WIN = platform() === 'win32'
 const DSH_HOME = process.env.DSH_HOME ?? join(homedir(), '.dsh')
+
+/** 「settings.yaml 里像是配过 bailian 路由了」。写入判断与自检共用，避免两处口径不一致。 */
+const ROUTE_PRESENT = /^ *bailian:/m
 
 const bold = (text) => `[1m${text}[0m`
 const warn = (text) => console.log(`[33m${text}[0m`)
@@ -64,6 +71,8 @@ function backup(path) {
  * 复制的代价是「包内那份不再是唯一来源」，所以只在不得已时用，并明确告知。
  */
 function linkOrCopy(target, linkPath) {
+  // 目标不存在时 symlinkSync 仍会成功，只是造出一条悬空链 —— 那比报错更难查。
+  if (!existsSync(target)) throw new Error(`找不到 ${target}，无法链接到 ${linkPath}`)
   rmSync(linkPath, { recursive: true, force: true })
   try {
     symlinkSync(target, linkPath, WIN ? 'junction' : 'dir')
@@ -176,22 +185,68 @@ async function lostSecrets(pid) {
 }
 
 /**
- * 拉起要用的那个 node 能不能跑 DSH。**必须在杀掉旧进程之前问**。
+ * 拉起时**实际会跑的那个 node**。
+ *
+ * 命令行第一个词是 node（可能带绝对路径）就用它自己那份；否则是 `dsh web` 这类
+ * npm 垫片，垫片走 `#!/usr/bin/env node`，跑的就是 PATH 上那个。
+ * 查错对象会两头出错：命令里写死了新 node 却去查旧的 PATH → 误拦；
+ * 反过来命令里是旧 node 而 PATH 是新的 → 漏拦，杀完起不来。
+ */
+function relaunchNodeBin(command) {
+  const first = command.trim().split(/\s+/)[0]?.replace(/^["']|["']$/g, '') ?? ''
+  return basename(first).replace(/\.exe$/i, '') === 'node' ? first : 'node'
+}
+
+/**
+ * 那个 node 能不能跑 DSH。**必须在杀掉旧进程之前问**。
  *
  * 本命令继承调用方的环境。跑在 dsh 里的 agent 调用时这天然正确（它看到的就是 dsh
  * 自己的环境），但从别处调用 —— 另一个终端、另一个 agent —— PATH 上的 node 可能是
  * 系统那份旧版本。DSH 要求 `^22.19 || >=24`，旧版起不来，而旧进程此时已经被杀了，
  * 结果是「DSH 没了，且没有任何地方说为什么」。
- * @returns `{ text, ok }`；探测不到（没有 node 或命令不是 node 拉起的）返回 undefined，放行。
+ * @returns `{ text, ok, bin }`；探测不到（跑不起来那个 node）返回 undefined，放行。
  */
 async function relaunchNodeVersion(command) {
-  // 命令不是以 node 拉起的（例如 `dsh web`）就测不了，放行 —— 猜错的代价比不查更高。
-  if (!/(^|[\s/\\])node(\.exe)?["']?\s/.test(command)) return undefined
+  const bin = relaunchNodeBin(command)
   try {
-    const { stdout } = await run('node', ['-v'])
+    const { stdout } = await run(bin, ['-v'])
     const [major, minor] = stdout.trim().replace(/^v/, '').split('.').map(Number)
-    return { text: stdout.trim(), ok: (major === 22 && minor >= 19) || major >= 24 }
+    return { bin, text: stdout.trim(), ok: (major === 22 && minor >= 19) || major >= 24 }
   } catch { return undefined }
+}
+
+/**
+ * 取被重启进程的**精确 argv**。
+ *
+ * `ps` 给的命令行是用空格拼起来的，引号全丢。参数里有空格时
+ * （`--patch "/some dir/x.yml"`）按空格重新切分就会切错，而此时旧进程已经被杀。
+ * Linux 的 `/proc/<pid>/cmdline` 是 NUL 分隔的、无损；别的平台拿不到，
+ * 只能退化成「命令行字符串 + 一道可疑性检查」。
+ */
+async function processArgv(pid) {
+  if (platform() === 'linux') {
+    try {
+      const argv = (await readFile(`/proc/${pid}/cmdline`, 'utf8')).split('\0').filter((part) => part.length > 0)
+      if (argv.length > 0) return argv
+    } catch { /* 权限或已退出 */ }
+  }
+  return undefined
+}
+
+/**
+ * 命令行按空格切开后，有没有「明确是路径、却并不存在」的碎片？
+ * 那就是引号被 `ps` 丢掉、参数被切碎的信号 —— 照这条命令拉起必然失败。
+ *
+ * 只认绝对路径、显式相对路径（`./` `../`）和 Windows 盘符：
+ * 含斜杠不等于是路径，`--import tsx/esm` 里的 `tsx/esm` 是模块说明符，
+ * 按「含斜杠且不存在」去判会把它误报成切碎的碎片。
+ */
+function missplitTokens(command, cwd) {
+  return command.split(/\s+/).filter((token) => {
+    const bare = token.replace(/^["']|["']$/g, '')
+    if (!/^(\/|\.\.?[/\\]|[A-Za-z]:[\\/]|\\\\)/.test(bare)) return false
+    return !existsSync(bare) && !existsSync(resolve(cwd, bare))
+  })
 }
 
 /**
@@ -227,14 +282,19 @@ async function restart() {
     return 1
   }
 
-  // 两道体检都在**杀进程之前**做，而且一次报全：分两次报的话，用户修好第一条、
+  // 拿得到精确 argv 就按数组拉起（不经 shell，引号与空格无损）；
+  // 拿不到就退化成命令行字符串，并检查它有没有被 `ps` 切碎。
+  const argv = process.env.DSH_RESTART_CMD === undefined ? await processArgv(target.pid) : undefined
+  const command = process.env.DSH_RESTART_CMD ?? target.command
+
+  // 三道体检都在**杀进程之前**做，而且一次报全：分两次报的话，用户修好第一条、
   // 重跑、才发现还有第二条 —— 而这中间旧进程已经死了。
   const self = JSON.stringify(join(HERE, 'install.mjs'))
   const blockers = []
-  const version = await relaunchNodeVersion(target.command)
+  const version = await relaunchNodeVersion(argv?.[0] ?? command)
   if (version !== undefined && !version.ok) {
     blockers.push([
-      `拉起要用的 node 是 ${version.text}，DSH 要求 ^22.19 || >=24 —— 现在重启会把 DSH 杀掉且起不来。`,
+      `拉起要用的 node（${version.bin}）是 ${version.text}，DSH 要求 ^22.19 || >=24 —— 现在重启会把 DSH 杀掉且起不来。`,
       '  本命令继承你当前 shell 的环境。先把够新的 node 放上 PATH：',
       `    PATH="<node24 目录>/bin:$PATH" node ${self} --restart`,
       '  跑在 dsh 里的 agent 一般碰不到这条：它继承的就是 dsh 自己的环境。',
@@ -249,6 +309,15 @@ async function restart() {
       '  或者把 key 存进 DSH 的凭据服务（设置 → 模型），从此不受重启影响。',
     ])
   }
+  const missplit = argv === undefined ? missplitTokens(command, cwd) : []
+  if (missplit.length > 0) {
+    blockers.push([
+      `读到的命令行里有这些不存在的路径碎片：${missplit.join('、')}`,
+      '  说明原命令的参数里带空格，而系统只给得出用空格拼起来的命令行，切分已经错了。',
+      '  照这条拉起必然失败，所以先停手。把完整命令显式给出即可：',
+      `    DSH_RESTART_CMD='<dsh 的完整启动命令>' node ${self} --restart`,
+    ])
+  }
   if (blockers.length > 0 && !process.argv.includes('--force')) {
     warn(`重启前发现 ${blockers.length} 处问题，就此打住 —— 旧进程还活着。`)
     for (const lines of blockers) { console.log(''); warn(`  · ${lines[0]}`); for (const line of lines.slice(1)) console.log(`  ${line}`) }
@@ -258,9 +327,9 @@ async function restart() {
 
   console.log(bold('将重启'))
   console.log(`  pid   = ${target.pid}（匹配 "${target.pattern}"）`)
-  console.log(`  cmd   = ${target.command}`)
+  console.log(`  cmd   = ${argv === undefined ? command : argv.join(' ')}${argv === undefined ? '' : '（按精确 argv 拉起）'}`)
   console.log(`  cwd   = ${cwd}`)
-  console.log(`  node  = ${version?.text ?? '（命令不是 node 直接拉起的，未探测）'}`)
+  console.log(`  node  = ${version?.text ?? '（探测不到，未检查）'}`)
   console.log(`  日志  = ${RESTART_LOG}`)
 
   const child = spawn(process.execPath, [fileURLToPath(import.meta.url), '--relaunch-worker'], {
@@ -270,8 +339,9 @@ async function restart() {
     env: {
       ...process.env,
       DSH_RELAUNCH_PID: String(target.pid),
-      DSH_RELAUNCH_CMD: target.command,
+      DSH_RELAUNCH_CMD: command,
       DSH_RELAUNCH_CWD: cwd,
+      ...argv === undefined ? {} : { DSH_RELAUNCH_ARGV: JSON.stringify(argv) },
     },
   })
   child.unref()
@@ -298,10 +368,17 @@ async function relaunchWorker() {
   // （比如 PATH 上的 node 太旧）DSH 会直接消失且**任何地方都没有原因**。
   // 追加写到日志文件，代价只有一个文件，换来失败时有据可查。
   mkdirSync(dirname(RESTART_LOG), { recursive: true })
-  writeFileSync(RESTART_LOG, `\n===== ${new Date().toISOString()} 重启 =====\ncwd: ${cwd}\ncmd: ${command}\n`, { flag: 'a' })
+  const argvJson = process.env.DSH_RELAUNCH_ARGV
+  writeFileSync(RESTART_LOG, `\n===== ${new Date().toISOString()} 重启 =====\ncwd: ${cwd}\ncmd: ${argvJson ?? command}\n`, { flag: 'a' })
   const log = openSync(RESTART_LOG, 'a')
-  // shell: true 让整条命令行（含参数与引号）按原样解析；环境由本进程继承而来。
-  spawn(command, { cwd, detached: true, stdio: ['ignore', log, log], shell: true }).unref()
+  const stdio = ['ignore', log, log]
+  // 有精确 argv 就不经 shell 直接拉起 —— 参数里的空格与引号原样传过去。
+  // 没有就只能把命令行整串交给 shell 重新解析；环境两种情况都由本进程继承而来。
+  if (argvJson === undefined) spawn(command, { cwd, detached: true, stdio, shell: true }).unref()
+  else {
+    const argv = JSON.parse(argvJson)
+    spawn(argv[0], argv.slice(1), { cwd, detached: true, stdio, shell: false }).unref()
+  }
 }
 
 /** 往 profile 的补丁层写 insert 块。新装的 profile 里这个文件是一句 `[]`。 */
@@ -325,7 +402,10 @@ function mountPlugin(profile) {
   const entry = `# dsh-deepseek-vision —— 纯文本模型的图像能力。\n`
     + `# 识图路由不在这里声明：补丁层的 config 是整体替换而非深合并，\n`
     + `# 在这里写 llm-pi-ai 会抹掉 settings.yaml 里已有的其它路由。\n`
-    + `- insert:\n    - id: deepseek-vision\n      name: ${JSON.stringify(resolve(HERE, 'src/index.ts'))}\n`
+    // 指构建产物而不是 src/index.ts：npm 发布的 dsh 入口是 `lib/bin.js`，plain node 跑，
+    // **没有 tsx**（tsx 只在源码启动 `node --import tsx/esm` 时存在），加载 .ts 会直接失败。
+    // lib/index.js 是入库的，两种形态下都在。
+    + `- insert:\n    - id: deepseek-vision\n      name: ${JSON.stringify(join(HERE, 'lib', 'index.js'))}\n`
     + `      config:\n        provider: bailian\n        model: qwen3.8-max\n`
   // 去掉注释与空行后只剩 `[]` 的话，必须**替换**而不是追加 ——
   // `[]` 后面再跟 `- item` 是非法 YAML，dsh 启动时直接 parse error。
@@ -342,7 +422,9 @@ function mountPlugin(profile) {
 function writeRoute() {
   const settings = join(DSH_HOME, 'settings.yaml')
   const text = existsSync(settings) ? readFileSync(settings, 'utf8') : ''
-  if (/^ {4}bailian:/m.test(text)) return '已存在，跳过'
+  // 与 6/6 自检同一条正则：严格按 4 空格判断的话，settings.yaml 被 DSH 的写入器
+  // 重排过缩进就会漏判，于是写出第二个 bailian 键。
+  if (ROUTE_PRESENT.test(text)) return '已存在，跳过'
   backup(settings)
   const route = [
     '    bailian:',
@@ -475,12 +557,17 @@ const POINTER_FN = {
  */
 const POINTER_CALL = {
   id: 'image-pointer/call',
-  find: /for \(const message of messages\) \{(\s*)assertTextOnly\(message\.content\);?/,
-  build: (ts, match) => [
-    'for (const original of messages) {',
-    `${match[1]}// ${MARK}：原为 assertTextOnly(message.content) 直接抛错。`,
-    `${match[1]}const message = { ...original, content: replaceImagesWithPointers(original.content) }${ts ? '' : ';'}`,
-  ].join(''),
+  find: /for \(const message of messages\) \{([ \t]*\n[ \t]*)assertTextOnly\(message\.content\);?/,
+  // 缩进从捕获组取，换行显式拼 —— 不依赖捕获组里恰好含换行。少了换行，
+  // 后面那句 `//` 注释会把整行吞掉。
+  build: (ts, match) => {
+    const indent = /\n([ \t]*)$/.exec(match[1])?.[1] ?? (ts ? '    ' : '\t\t')
+    return [
+      'for (const original of messages) {',
+      `${indent}// ${MARK}：原为 assertTextOnly(message.content) 直接抛错。`,
+      `${indent}const message = { ...original, content: replaceImagesWithPointers(original.content) }${ts ? '' : ';'}`,
+    ].join('\n')
+  },
 }
 
 /**
@@ -559,12 +646,12 @@ function formFiles(root, forms) {
 }
 
 /**
- * 改一个文件。幂等（见到标记就跳过），原文另存为 `.dsh-vision-orig` 供精确还原。
+ * 算出一个文件改完是什么样，**不写盘**。写盘留到所有落点都算成功之后。
  *
  * 用 `exec` + 手工拼接而不是 `String.replace`：替换文本里含 `$` 与反引号，
  * 走 replace 会被当成 `$1` 之类的替换记号吃掉。
  */
-function patchFile(path, edits) {
+function planPatch(path, edits) {
   const before = readFileSync(path, 'utf8')
   if (before.includes(MARK)) return { path, status: 'already' }
   const ts = path.endsWith('.ts')
@@ -574,28 +661,51 @@ function patchFile(path, edits) {
     if (match === null) return { path, status: 'no-anchor', edit: edit.id }
     text = text.slice(0, match.index) + edit.build(ts, match) + text.slice(match.index + match[0].length)
   }
-  writeFileSync(`${path}.dsh-vision-orig`, before, 'utf8')
-  writeFileSync(path, text, 'utf8')
-  return { path, status: 'patched' }
-}
-
-/** 还原一个文件：把另存的原文拷回去。原文丢了就明说，不猜着往回改。 */
-function revertFile(path) {
-  const orig = `${path}.dsh-vision-orig`
-  const patched = existsSync(path) && readFileSync(path, 'utf8').includes(MARK)
-  if (!existsSync(orig)) return { path, status: patched ? 'orig-missing' : 'clean' }
-  copyFileSync(orig, path)
-  rmSync(orig, { force: true })
-  return { path, status: 'reverted' }
+  return { path, status: 'patch', before, after: text }
 }
 
 /**
- * 打（或还原）本体补丁。
+ * 算出一个文件还原成什么样，**不写盘**。
+ *
+ * 关键是「当前这份确实是我们改过的」才还原。DSH 升级会把文件覆盖成新版，
+ * 而 `.dsh-vision-orig` 还留着**升级前**的内容 —— 此时拷回去等于把 DSH 降级，
+ * 且看起来是一次成功的还原。所以没有标记就只清掉这份过期备份。
+ */
+function planRevert(path) {
+  const orig = `${path}.dsh-vision-orig`
+  if (!existsSync(path)) return { path, status: 'gone' }
+  const patched = readFileSync(path, 'utf8').includes(MARK)
+  if (!existsSync(orig)) return { path, status: patched ? 'orig-missing' : 'clean' }
+  if (!patched) return { path, status: 'stale-orig' }
+  return { path, status: 'revert', before: readFileSync(path, 'utf8'), after: readFileSync(orig, 'utf8') }
+}
+
+/** 每种结果怎么说。`ok:false` 的会让整轮不写盘。 */
+const OUTCOMES = {
+  patch: { ok: true, write: true, text: (rel) => `✓ ${rel}` },
+  revert: { ok: true, write: true, text: (rel) => `✓ ${rel} 已还原` },
+  already: { ok: true, write: false, text: (rel) => `· ${rel} 已打过，跳过` },
+  clean: { ok: true, write: false, text: (rel) => `· ${rel} 本来就没改过` },
+  'stale-orig': { ok: true, write: false, text: (rel) => `· ${rel} 已不是本插件改过的那份（多半 DSH 升级覆盖了它），只清掉过期备份` },
+  gone: { ok: false, write: false, text: (rel) => `✗ ${rel} 不存在` },
+  'orig-missing': { ok: false, write: false, text: (rel) => `✗ ${rel} 改过但原文已丢，需手工还原，见 patches/README.md` },
+  'no-anchor': { ok: false, write: false, text: (rel, plan) => `✗ ${rel} 找不到 ${plan.edit} 的锚点 —— DSH 版本可能已变，需手工重做，见 patches/README.md` },
+}
+
+/**
+ * 打（或还原）本体补丁。**先把所有落点全算完，全部成功才写盘。**
+ *
+ * 两处改动是成对的：准入那处放行图片、序列化那处把图片换成文字指针。
+ * 只打成前一处的话，图片进得了会话、却必定在序列化时抛 `UNSUPPORTED_CONTENT`，
+ * 那条会话再也走不下去 —— 比一处都不打糟得多。所以宁可整轮不做。
  * @returns `{ lines, ok }` —— lines 逐条汇报，ok 为 false 时调用方应以非零码退出。
  */
 function patchBody(profile, { revert = false } = {}) {
   const lines = []
+  const plans = []
   let ok = true
+
+  // 第一阶段：只算，不写。
   for (const target of PATCH_TARGETS) {
     const roots = findPackageRoots(target.pkg, target.repoDir, profile)
     if (roots.length === 0) {
@@ -608,7 +718,7 @@ function patchBody(profile, { revert = false } = {}) {
       lines.push('  源码跑的 DSH：DSH_REPO=<仓库根> node install.mjs --route-only')
       continue
     }
-    let touched = 0
+    let seen = 0
     for (const root of roots) {
       // 打到哪份 DSH 上必须显式打印：万一机器上有多份，用户要能一眼看出改错了没有。
       lines.push(`${revert ? '还原' : '改'} ${target.pkg} @ ${root}`)
@@ -618,17 +728,45 @@ function patchBody(profile, { revert = false } = {}) {
         continue
       }
       for (const file of files) {
-        const result = revert ? revertFile(file) : patchFile(file, target.edits)
-        const rel = file.slice(root.length + 1)
-        if (result.status === 'patched') { touched += 1; lines.push(`  ✓ ${rel}（原文另存 ${basename(file)}.dsh-vision-orig）`) }
-        else if (result.status === 'already') { touched += 1; lines.push(`  · ${rel} 已打过，跳过`) }
-        else if (result.status === 'reverted') { touched += 1; lines.push(`  ✓ ${rel} 已还原`) }
-        else if (result.status === 'clean') { touched += 1; lines.push(`  · ${rel} 本来就没改过`) }
-        else if (result.status === 'orig-missing') { ok = false; lines.push(`  ✗ ${rel} 改过但原文已丢，需手工还原，见 patches/README.md`) }
-        else { ok = false; lines.push(`  ✗ ${rel} 找不到 ${result.edit} 的锚点 —— DSH 版本可能已变，需手工重做，见 patches/README.md`) }
+        const plan = revert ? planRevert(file) : planPatch(file, target.edits)
+        const outcome = OUTCOMES[plan.status]
+        seen += 1
+        lines.push(`  ${outcome.text(file.slice(root.length + 1), plan)}`)
+        if (!outcome.ok) ok = false
+        if (outcome.write) plans.push(plan)
+        if (plan.status === 'stale-orig') plans.push({ ...plan, dropOrig: true })
       }
     }
-    if (touched === 0) ok = false
+    if (seen === 0) ok = false
+  }
+
+  if (!ok) {
+    lines.push('')
+    lines.push('以上有失败项，本轮**一个字节都没写** —— 两处改动必须成对，半打的状态会让会话卡死。')
+    return { lines, ok }
+  }
+
+  // 第二阶段：写盘。写到一半失败就把已经写过的退回去，绝不留下半打状态。
+  const written = []
+  try {
+    for (const plan of plans) {
+      if (plan.dropOrig === true) { rmSync(`${plan.path}.dsh-vision-orig`, { force: true }); continue }
+      if (plan.status === 'patch') writeFileSync(`${plan.path}.dsh-vision-orig`, plan.before, 'utf8')
+      writeFileSync(plan.path, plan.after, 'utf8')
+      if (plan.status === 'revert') rmSync(`${plan.path}.dsh-vision-orig`, { force: true })
+      written.push(plan)
+    }
+  } catch (error) {
+    for (const plan of written.reverse()) {
+      writeFileSync(plan.path, plan.before, 'utf8')
+      if (plan.status === 'patch') rmSync(`${plan.path}.dsh-vision-orig`, { force: true })
+      else writeFileSync(`${plan.path}.dsh-vision-orig`, plan.after, 'utf8')
+    }
+    lines.push(`✗ 写盘失败，已回滚本轮所有改动：${error instanceof Error ? error.message : String(error)}`)
+    return { lines, ok: false }
+  }
+  if (!revert && plans.some((plan) => plan.status === 'patch')) {
+    lines.push(`（原文均已另存为 <原文件名>.dsh-vision-orig，还原：node ${join(HERE, 'install.mjs')} --revert-patches）`)
   }
   return { lines, ok }
 }
@@ -649,7 +787,6 @@ async function main() {
   }
 
   // 本体补丁默认就打：不打的话，用户装完在对话框里粘图仍会被拒 —— 那正是他要的功能。
-  // `--with-patches` 保留为空操作，外面流传的文档与提示词里写着它。
   const patches = !argv.includes('--no-patches')
   // 从 GitHub 用 `dsh plugin add` 装的用户，插件行已由 bundle 层提供。
   // 此时不能再写 profile 的 cordis.patch.yml —— 两条同 id 的行会让 Loader 在启动时抛
@@ -692,7 +829,7 @@ async function main() {
   const missing = []
   // settings.yaml 由 DSH 的设置写入器维护并会规范化格式（实测 `[text, image]` 被重写成
   // `[ text, image ]`），所以一律宽松匹配 —— 查的是「像不像配过」，不是「配得对不对」。
-  if (!/^ *bailian:/m.test(settings)) missing.push('settings.yaml 里没有 bailian 路由')
+  if (!ROUTE_PRESENT.test(settings)) missing.push('settings.yaml 里没有 bailian 路由')
   if (!/input:.*\btext\b.*\bimage\b/.test(settings)) missing.push('路由没声明 input: [text, image] —— 这一行是打开图像门禁的开关')
   if (!/thinkingFormat: *qwen/.test(settings)) missing.push('路由没有 compat.thinkingFormat: qwen —— 不关思维会白烧 113 倍 token')
   if (!process.env.BAILIAN_API_KEY) missing.push('当前环境没有 BAILIAN_API_KEY（也可在 Web 的 设置→模型 页存进凭据服务）')

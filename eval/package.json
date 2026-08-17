@@ -1,0 +1,9 @@
+{
+  "name": "dsh-deepseek-vision-eval",
+  "private": true,
+  "type": "module",
+  "description": "视觉保真判定基准。只在 GitHub 仓库里，不随插件包分发。",
+  "devDependencies": {
+    "playwright": "^1.50.0"
+  }
+}

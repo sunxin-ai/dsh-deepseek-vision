@@ -1,9 +1,9 @@
 dsh-deepseek-vision
 Copyright (c) 2026 sunxin-ai
 
-This product includes software developed by DeepSeek.
-
-patches/dsh-local.patch contains diff fragments of DeepSeek Harness
+This plugin patches DeepSeek Harness
 (https://github.com/deepseek-ai/deepseek-harness), which is MIT licensed,
-Copyright (c) 2026 DeepSeek. Those fragments remain under that license;
+Copyright (c) 2026 DeepSeek. The patched files stay under that license;
 its full text is identical to the MIT License in ./LICENSE.
+
+patches/README.md documents both edits and how to revert them.

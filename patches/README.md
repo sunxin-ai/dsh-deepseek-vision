@@ -76,11 +76,15 @@ DSH_REPO=<DSH 源码仓库根> node install.mjs --route-only
 
 ## 手工重做
 
-自动打不上（上游改了那两处的写法）时，`dsh-local.patch` 是**参考 diff**，
-不再被脚本使用，可读性优先。照着它改即可，改动本身很小：一处是删掉一个 `if` 块，
-一处是把抛错换成返回文字指针。
+自动打不上（上游改了那两处的写法）时照着上面两节改即可，改动本身很小：
+一处是删掉一个 `if` 块，一处是把抛错换成返回文字指针。
 
-改完想让脚本认账，在改动处留一行含 `DSH-DEEPSEEK-VISION-PATCH` 的注释即可。
+要注入的完整代码就在 `install.mjs` 里 —— `ADMISSION`、`POINTER_FN`、`POINTER_CALL`
+三个常量各自带着 TS 与构建产物两种形态的原文，直接抄。
+
+改完想让脚本认账（后续能幂等跳过、能 `--revert-patches`），在改动处留一行含
+`DSH-DEEPSEEK-VISION-PATCH` 的注释，并把改动前的原文另存为
+`<原文件名>.dsh-vision-orig`。
 
 ## 升级 DSH 之后
 

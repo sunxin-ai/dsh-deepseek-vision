@@ -41,6 +41,10 @@ node install.mjs --restart          # 冷启动。HMR 是关的，刷新浏览�
 
 装好了。**在对话框里粘一张图，直接问「这是啥」即可。**
 
+> 图片走**粘贴或拖拽**进对话框 —— DSH 的输入框没有单独的上传按钮，
+> 左下那个 `+` 是命令菜单不是附件入口，别去找。
+> 也可以直接把图片的**绝对路径**或 **http(s) 地址**发给模型，让它自己调 `deepseek_vision`。
+
 不需要告诉脚本 DSH 装在哪 —— 它从 profile 的 `node_modules` 自己解析出本体位置，
 npm 装的和源码跑的都认。密钥也不经它的手，只写变量名 `apiKeyEnv: BAILIAN_API_KEY`。
 
@@ -74,15 +78,16 @@ node install.mjs --revert-patches
 不想手敲的话，把下面这段整体发给 DSH，它有 bash，会自己跑完：
 
 ```text
-装 dsh-deepseek-vision，按这四步，不要自己发挥：
+装 dsh-deepseek-vision，按这五步，不要自己发挥：
 
 1. dsh plugin --profile web add github:sunxin-ai/dsh-deepseek-vision
 2. cd "${DSH_HOME:-$HOME/.dsh}/profiles/web/node_modules/dsh-deepseek-vision"
-3. BAILIAN_API_KEY=<你的 key> node install.mjs --route-only
-4. node install.mjs --restart      # 不要用 pkill，那会杀掉你自己
+3. export BAILIAN_API_KEY=<你的 key>      # 用 export，下一条命令也要用到它
+4. node install.mjs --route-only
+5. node install.mjs --restart      # 不要用 pkill，那会杀掉你自己
 
-第 3 步会顺带改 DSH 本体两处（粘贴图片必须的），原文自动备份，
-node install.mjs --revert-patches 可一键还原。把第 3 步的完整输出贴回给我。
+第 4 步会顺带改 DSH 本体两处（粘贴图片必须的），原文自动备份，
+node install.mjs --revert-patches 可一键还原。把第 4 步的完整输出贴回给我。
 ```
 
 **「不要自己发挥」这句请保留。** 三处最容易被自由发挥搞砸：
@@ -93,7 +98,8 @@ node install.mjs --revert-patches 可一键还原。把第 3 步的完整输出�
   它拿不到结果也无法确认是否成功。`--restart` 立即返回，重启在它身后完成。
 - **自己编一个 key** —— 脚本不代经手密钥，自检会明确报缺少 `BAILIAN_API_KEY`，它应当回来向你要。
 
-脚本任何一步没做成都会**打印 `✗` 并以非零码退出**，所以让它把第 3 步的输出原样贴回来就能验收。
+**本体补丁没打成会以非零码退出**；缺 key、路由没写这类则是自检里的黄色告警（退出码仍为 0）。
+所以别只看退出码 —— 让它把输出原样贴回来，看最后那段自检有没有黄字。
 
 > DSH 的自修改工具（`cordis_define` / `cordis_run`）**不能**用来做持久安装 ——
 > 那套是内存态的：不产生插件文件、不改 `cordis.yml`、重启即消失。持久安装必须落到文件，所以走上面这条。
@@ -102,7 +108,8 @@ node install.mjs --revert-patches 可一键还原。把第 3 步的完整输出�
 
 ## 引擎为什么是 Qwen：它通过了基准测试
 
-不是随手挑的。[`eval/`](eval/README.md) 下有完整的基准规范与 4 组夹具（23 处缺陷），横评结论：
+不是随手挑的。[`eval/`](https://github.com/sunxin-ai/dsh-deepseek-vision/tree/main/eval)
+下有完整的基准规范与 4 组夹具（23 处缺陷），横评结论：
 
 | 模型 | 定向探针 | 难档（字重 800 vs 500） |
 |---|---|---|
@@ -133,20 +140,23 @@ llm-pi-ai:
 ```
 
 ```yaml
-# 2) profile 的 cordis.patch.yml —— 指过去
-- insert:
-    - id: deepseek-vision
-      name: dsh-deepseek-vision
-      config:
-        provider: my-vision
-        model: your-model-id
+# 2) profile 的 cordis.patch.yml —— 覆盖插件行的 config
+- id: deepseek-vision
+  config:
+    provider: my-vision
+    model: your-model-id
 ```
+
+**注意这里不能写 `- insert:`。** 插件行已经由 bundle 层插好了，再 insert 一条同 id 的
+不是覆盖而是**并存**，DSH 启动时抛 `duplicate loader entry id: deepseek-vision`。
+上面这种「给出 `id` + 要改的字段」的写法才是按 id 覆盖。
 
 **唯一的硬性要求：那个模型必须真的支持多模态输入，且路由声明了 `input: [text, image]`。**
 这是「对端点的声明，不是对端点的检查」（上游 JSDoc 原话）——
 声明了但端点实际不收图，会在调用时被供应商拒绝，而不是在配置时报错。
 
-换模型后建议用 [`eval/`](eval/README.md) 重跑一遍基准，尤其看难档与零差异对照那两项：
+换模型后建议用 [`eval/`](https://github.com/sunxin-ai/dsh-deepseek-vision/tree/main/eval)
+重跑一遍基准（只在 GitHub 仓库里，不随包分发），尤其看难档与零差异对照那两项：
 **能看见 ≠ 可用**，一个召回高但幻觉多、或每次结论都漂移的模型会让判定循环发散。
 
 ## 工具
@@ -156,7 +166,8 @@ llm-pi-ai:
 看一张图并回答问题。`image_path` 三选一：
 
 - 文件绝对路径
-- **http(s) 图片地址** —— 文档、网页里的图直接传 URL
+- **http(s) 图片地址** —— 文档、网页里的图直接传 URL。走系统代理
+  （`HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`），上限 20 MB，跟随重定向
 - 上下文 `[图片 …]` 提示里的附件 id（`attachment=<id>` 或裸 id 都行）
 
 调用方**自己就是多模态模型时会被拒绝** —— 它直接看更准也更省，绕一手转述反而丢信息。
@@ -231,8 +242,17 @@ node install.mjs [profile]         # 完整安装（不走 dsh plugin add 时用
 | `--no-patches` | 不改 DSH 本体。粘贴图片将仍被拒绝 |
 | `--revert-patches` | 还原本体补丁并退出 |
 | `--restart` | 只冷启动，可从 dsh 自己的进程内部调用 |
-| `--force` | 无视重启前的体检告警 |
-| `DSH_REPO=<仓库根>` | 环境变量。只在自动定位不对时才需要，正常不必给 |
+| `--force` | 无视重启前的体检拦截 |
+
+环境变量（都只在自动探测不成时才需要）：
+
+| 变量 | 作用 |
+|---|---|
+| `DSH_HOME` | DSH 的家目录，默认 `~/.dsh` |
+| `DSH_REPO` | DSH 源码仓库根。只在本体自动定位不对时给 |
+| `DSH_PROCESS_PATTERN` | 用来认出 dsh 进程的命令行片段 |
+| `DSH_CWD` | dsh 的工作目录。**Windows 上必须给** —— 那里既没有 `/proc` 也没有 `lsof` |
+| `DSH_RESTART_CMD` | dsh 的完整启动命令 |
 
 完整安装做六件事，全部幂等、改动前自动备份：软链 `node_modules` → 软链 skill →
 写识图路由 → 写插件行 → 改本体 → 自检。
@@ -255,13 +275,31 @@ node install.mjs --restart
 它从运行中的进程读出原本的启动命令与工作目录再拉起，不会丢掉你启动时带的 `--patch` 参数；
 并且**立即返回** —— 所以跑在 dsh 里的 agent 也能安全调用（自己 `pkill` 会把自己一起杀掉）。
 
-新进程**继承调用方当前的环境**。杀旧进程之前先做两项体检，任一不过就停手并保留旧进程：
+新进程**继承调用方当前的环境**。杀旧进程之前先做三项体检，任一不过就停手并保留旧进程
+（确认无妨可以 `--force`）：
 
-- PATH 上的 `node` 不满足 DSH 的 `^22.19 || >=24`；
+- 实际要用的那个 `node` 不满足 DSH 的 `^22.19 || >=24`；
 - 旧进程持有、而当前 shell 没有的密钥类环境变量（例如只 export 在另一个终端里的
-  `BAILIAN_API_KEY`）—— 丢掉它会让插件「装好了却用不了」。
+  `BAILIAN_API_KEY`）—— 丢掉它会让插件「装好了却用不了」。只比对变量名，不读值；
+- 读到的启动命令被切碎了。Linux 上取的是 `/proc` 里的精确 argv，不受影响；
+  别的平台只拿得到用空格拼起来的命令行，参数里带空格时会切错 —— 此时用
+  `DSH_RESTART_CMD` 显式给出完整命令。
 
 新进程的输出写到 `$DSH_HOME/dsh-deepseek-vision-restart.log`。
+
+**Windows** 上还需要显式给 `DSH_CWD`，否则读不到工作目录、会拒绝重启。
+
+### 改插件源码
+
+`src/index.ts` 改完要建到 `lib/index.js`（DSH 加载的是构建产物）：
+
+```sh
+npx tsdown --entry src/index.ts --format esm --out-dir lib --dts false --no-config
+```
+
+注意 `install.mjs` 第 1 步会把本目录的 `node_modules` 换成指向 profile 的软链，
+而 `npm install` 又会把它换回真目录 —— 两者互相拆台。所以构建工具建议用 `npx`
+或装在别处，不要 `npm install` 到本目录。
 
 ### 识图路由长什么样
 
@@ -297,7 +335,7 @@ llm-pi-ai:
 ```sh
 node install.mjs --revert-patches                     # 1. 先还原本体补丁
 dsh plugin --profile web remove dsh-deepseek-vision   # 2. 插件行
-rm -f ~/.agents/skills/deepseek-vision                # 3. skill 软链
+rm -rf ~/.agents/skills/deepseek-vision               # 3. skill 软链（Windows 上可能是复制的目录）
 # 4. 从 $DSH_HOME/settings.yaml 里删掉 llm-pi-ai.providers.bailian 整段
 ```
 
@@ -306,11 +344,11 @@ rm -f ~/.agents/skills/deepseek-vision                # 3. skill 软链
 
 ## 已知限制
 
-- **本体改动不能自失效。** 插件在仓库外，通过 profile 的 `node_modules` 解析
-  `@deepseek-ai/dsh-llm`，而源码运行的 DSH 用的是仓库里那份 —— 两份是不同的模块实例，
-  模块级状态不共享，所以插件没法在卸载时让补丁自动退回。卸载必须显式 `--revert-patches`。
+- **本体改动不能自失效。** 补丁是磁盘上的文件改动，而卸载插件只摘掉插件行、不会去重写那些文件。
+  所以卸载必须显式 `--revert-patches`，顺序见上面的卸载一节。
 - **升级 DSH 会冲掉本体改动**（文件被新版覆盖）。表现是「粘图又被拒了」，重跑一次
   `node install.mjs --route-only` 即可。这也是有意的：新版 DSH 万一自己支持了图片，补丁不该悄悄留着。
+  升级后即使备份文件还在，`--revert-patches` 也只会清掉那份过期备份、不会把新版文件覆盖回旧内容。
 - **按代码形态定位锚点，不按版本号。** 上游改写了那两处时，脚本会**报错并列出文件**，
   而不是打半个补丁。两种形态都会被改到（源码运行的 `src/*.ts`、npm 安装的 `lib/index.js`）——
   无法可靠判断哪份是活的，宁可都改；源码仓库里因此会多出未跟踪的 `.dsh-vision-orig` 备份文件。

@@ -21,7 +21,7 @@
 `evalset/shoot.mjs` 与 `assert.mjs` 需要 Playwright，本包**不把它列为依赖**（插件运行时用不到）：
 
 ```sh
-cd eval && npm i -D playwright && npx playwright install chromium
+cd eval && npm i && npx playwright install chromium
 export PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright"   # 别装到 ~/Library，DSH 沙箱拒绝
 node evalset/shoot.mjs --crops                       # 出截图与区块裁剪
 node pair.mjs --left <design裁剪> --right <impl裁剪> --out pairs/<名字>.png
@@ -41,20 +41,20 @@ node pair.mjs --left <design裁剪> --right <impl裁剪> --out pairs/<名字>.pn
 
 ## 三条会让你白测的陷阱
 
-这套基准自己踩过，都写在 `RUBRIC.md` 里：
+都写在 `RUBRIC.md` 里，照做即可：
 
-**一、夹具静默损坏。** 曾有两轮基准跑在**两块空白图**上 —— 拼图脚本用
-`page.setContent()` 加载 `file://` 图片，而 `setContent` 的文档源是 `about:blank`，
-子资源被静默拦截；`waitForLoadState('networkidle')` 照样返回成功。
-模型如实回答「图像未加载」，被记成了「模型编造分析」，并据此写出错误的架构结论。
-→ 拼图一律走 data URI 并断言 `naturalWidth > 0`；**评测集常驻一张已知空白图作对照**。
+**一、夹具会静默损坏。** 拼图脚本若用 `page.setContent()` 加载 `file://` 图片，
+子资源会被静默拦截（`setContent` 的文档源是 `about:blank`），而
+`waitForLoadState('networkidle')` 照样返回成功 —— 整轮基准跑在两块空白图上，
+模型如实回答「图像未加载」，很容易被记成「模型编造分析」。
+→ **拼图一律走 data URI 并断言 `naturalWidth > 0`；评测集常驻一张已知空白图作对照。**
 
-**二、二选一的方向题，单次命中是运气。** 一次答对「左边更粗」曾被记为难档命中；
-扩到 15 次只对 8 次 —— **53% 就是掷硬币**。而且错误按**轮次**聚集，单看任何一轮都像稳定的。
-→ 方向类判定必须跑满 3 次才计分。
+**二、二选一的方向题，单次命中是运气。** 「左边更粗」答对一次说明不了什么：
+扩到 15 次只对 8 次 —— **53% 就是掷硬币**。错误还按**轮次**聚集，单看任何一轮都像稳定的。
+→ **方向类判定必须跑满 3 次才计分。**
 
 **三、字重 600/700/800/900 在常用字体栈下渲染成同一字面。** 注入 800→600 在像素上完全无效。
-→ 字重类缺陷用 800→500 / 700→500，且注入后必须做像素级断言。
+→ **字重类缺陷用 800→500 / 700→500，且注入后必须做像素级断言。**
 
 ## 提问方式比模型选型更决定成败
 

@@ -15,7 +15,9 @@
  * 会让用户看到一串路径。本插件在 `agent/pre-step` 只做一件事：把图片落盘，不动任何内容块。
  *
  * 识图成本只在模型真的要看时才产生；问什么问题由模型自己决定 ——
- * 而读数式提问的效果高度依赖问题是否具体，所以那套纪律写在 skill 里，不写死在工具里。
+ * 读数式提问的完整纪律写在 skill 里，不写死在工具里；工具描述只保留两条硬约束：
+ * 一次问完（每次调用都要重送整张图，按像素计费），以及结果与印象冲突时以工具为准
+ * （否则模型会把图下下来自己数像素，实测一次这样的自查要 14 步、24 万输入 token）。
  *
  * 图片本身仍走 `ctx.attachments` 内容寻址落库，与用户上传的图同一生命周期，证据可从会话日志回放。
  * 生态里的同类插件（modlens、dsh-vision-toolkit 等）都自管图片流并替模型看完再注入描述；
@@ -41,6 +43,8 @@
 
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { request as httpRequest } from 'node:http'
+import { request as httpsRequest } from 'node:https'
 import { tmpdir } from 'node:os'
 import { basename, extname, join } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
@@ -212,10 +216,204 @@ function spillPath(attachmentId: string, mediaType: string): string {
 
 /**
  * 远程图片的下载上限。识图按像素计费，超大图既贵又会被降采样。
- * 检查发生在 body 读完之后 —— 想真正「早失败」需先看 `Content-Length`，
- * 但那个头不保证存在，所以这里换成读完再判，代价是超限图会白下一次。
+ * 先看 `Content-Length`，没有那个头就边收边数，收满上限即断开 ——
+ * 不把一张几百 MB 的图整个拉完再判。
  */
 const MAX_REMOTE_BYTES = 20 * 1024 * 1024
+
+/** 取图的超时。图站慢是常态，但吊死一个工具调用更糟。 */
+const REMOTE_TIMEOUT_MS = 20_000
+
+/** 环境变量取值，大小写两种写法都认（POSIX 下 `http_proxy` 与 `HTTP_PROXY` 都有人用）。 */
+function envValue(...names: readonly string[]): string | undefined {
+  for (const name of names) {
+    const value = process.env[name] ?? process.env[name.toLowerCase()]
+    if (value !== undefined && value !== '') return value
+  }
+  return undefined
+}
+
+/**
+ * 该地址要不要走代理，走哪个。
+ * @param target - 目标地址。
+ * @returns 代理地址；`NO_PROXY` 命中或没配代理时返回 undefined。
+ */
+function proxyFor(target: URL): URL | undefined {
+  for (const rule of (envValue('NO_PROXY') ?? '').split(',').map(part => part.trim()).filter(Boolean)) {
+    if (rule === '*') return undefined
+    const bare = rule.replace(/^\./, '')
+    if (target.hostname === bare || target.hostname.endsWith(`.${bare}`)) return undefined
+  }
+  const raw = target.protocol === 'https:'
+    ? envValue('HTTPS_PROXY', 'ALL_PROXY')
+    : envValue('HTTP_PROXY', 'ALL_PROXY')
+  if (raw === undefined) return undefined
+  try {
+    return new URL(/^[a-z0-9+.-]+:\/\//i.test(raw) ? raw : `http://${raw}`)
+  } catch {
+    return undefined
+  }
+}
+
+/** 代理的 Basic 认证头；代理地址里没带用户名就没有这个头。 */
+function proxyAuth(proxy: URL): Record<string, string> {
+  if (proxy.username === '') return {}
+  const token = Buffer.from(`${decodeURIComponent(proxy.username)}:${decodeURIComponent(proxy.password)}`)
+  return { 'proxy-authorization': `Basic ${token.toString('base64')}` }
+}
+
+/** 一次 GET 的结果。 */
+interface RemoteResponse {
+  status: number
+  contentType: string
+  data: Buffer
+}
+
+/** 超限时抛这个，让调用方能给出带具体字节数的提示。 */
+class TooLargeError extends Error {
+  constructor(readonly bytes: number) { super('too large') }
+}
+
+/**
+ * 取一个 http(s) 地址的字节，**按系统代理走**。
+ *
+ * 不用内置 `fetch`：Node 的 fetch（undici）默认不认 `HTTP_PROXY` / `HTTPS_PROXY`，
+ * 那要靠**启动时**的 `NODE_USE_ENV_PROXY=1`，而 DSH 怎么启动不归本插件管。
+ * 于是在代理后面的机器上，每个外网图片地址都会以一句没有线索的 `fetch failed` 收场 ——
+ * 而「文档里的图直接传 URL」正是本工具的主用法之一。
+ *
+ * 两种代理情形分开处理：http 目标把绝对 URL 交给代理即可；
+ * https 目标要先 `CONNECT` 打隧道，再在隧道上做 TLS。
+ * @param rawUrl - 目标地址。
+ * @param hops - 已跟随的重定向次数，防止环。
+ */
+function getRemote(rawUrl: string, hops = 0): Promise<RemoteResponse> {
+  return new Promise((resolveWith, rejectWith) => {
+    const target = new URL(rawUrl)
+    const secure = target.protocol === 'https:'
+    const port = Number(target.port) || (secure ? 443 : 80)
+    const proxy = proxyFor(target)
+    const headers = { host: target.host, accept: 'image/*,*/*;q=0.8', 'user-agent': 'dsh-deepseek-vision' }
+    const path = `${target.pathname}${target.search}`
+
+    // 挂钟兜底。socket 级的 setTimeout 只对「连上之后不动」有效，
+    // 而握手阶段卡住时它未必触发 —— 工具调用吊死比取图失败糟得多，所以再加一道硬闸。
+    const open: { destroy: () => void }[] = []
+    let done = false
+    const guard = setTimeout(() => {
+      for (const handle of open) { try { handle.destroy() } catch { /* 已经关了 */ } }
+      fail(new Error('ETIMEDOUT'))
+    }, REMOTE_TIMEOUT_MS)
+    function settle(value: RemoteResponse): void {
+      if (done) return
+      done = true
+      clearTimeout(guard)
+      resolveWith(value)
+    }
+    function fail(error: unknown): void {
+      if (done) return
+      done = true
+      clearTimeout(guard)
+      rejectWith(error)
+    }
+
+    const onResponse = (response: import('node:http').IncomingMessage): void => {
+      const status = response.statusCode ?? 0
+      const location = response.headers.location
+      if (status >= 300 && status < 400 && location !== undefined) {
+        response.resume()
+        if (hops >= 5) { fail(new Error('重定向次数过多')); return }
+        getRemote(new URL(location, target).href, hops + 1).then(settle, fail)
+        return
+      }
+      const declared = Number(response.headers['content-length'])
+      if (Number.isFinite(declared) && declared > MAX_REMOTE_BYTES) {
+        response.destroy()
+        fail(new TooLargeError(declared))
+        return
+      }
+      const chunks: Buffer[] = []
+      let size = 0
+      response.on('data', (chunk: Buffer) => {
+        size += chunk.length
+        if (size > MAX_REMOTE_BYTES) { response.destroy(); fail(new TooLargeError(size)); return }
+        chunks.push(chunk)
+      })
+      response.on('end', () => settle({
+        status,
+        contentType: String(response.headers['content-type'] ?? '').split(';')[0].trim(),
+        data: Buffer.concat(chunks),
+      }))
+      response.on('error', fail)
+    }
+
+    const onError = (error: unknown): void => {
+      const code = (error as NodeJS.ErrnoException)?.code ?? (error as Error)?.message ?? '未知错误'
+      fail(new Error(
+        `dsh-deepseek-vision: 连不上 ${target.origin}（${code}）`
+        + (proxy === undefined
+          ? '。'
+          // 走代理时拿不到真正的 DNS 错误：代理先回 200 建好隧道、再把隧道 reset，
+          // 于是「域名拼错」和「网络不通」在这一层看起来一模一样，只能都提一句。
+          : `，用的代理是 ${proxy.origin}（经代理时域名拼错也会报成连接被重置，先核对地址）。`)
+        + ' 网络不通或该站点需要登录态时，最省事的办法是**先把图下载到本地，再把本地路径传给本工具**，'
+        + '例如 `curl -L -o /tmp/x.png <地址>`。'
+        + ' 不要改用读源码、猜内容或自己做像素分析来代替看图 —— 那既慢又不可靠。',
+      ))
+    }
+
+    const arm = (request: import('node:http').ClientRequest): void => {
+      open.push(request)
+      request.on('error', onError)
+      request.setTimeout(REMOTE_TIMEOUT_MS, () => request.destroy(new Error('ETIMEDOUT')))
+      request.end()
+    }
+
+    if (proxy === undefined) {
+      arm((secure ? httpsRequest : httpRequest)({ hostname: target.hostname, port, path, headers }, onResponse))
+      return
+    }
+    const proxyPort = Number(proxy.port) || 80
+    if (!secure) {
+      // http 目标：绝对 URL 直接交给代理。
+      arm(httpRequest({ hostname: proxy.hostname, port: proxyPort, path: target.href, headers: { ...headers, ...proxyAuth(proxy) } }, onResponse))
+      return
+    }
+    // https 目标：CONNECT 建隧道，拿到裸 socket 后在其上做 TLS。
+    const tunnel = httpRequest({
+      method: 'CONNECT',
+      hostname: proxy.hostname,
+      port: proxyPort,
+      path: `${target.hostname}:${port}`,
+      headers: { host: `${target.hostname}:${port}`, ...proxyAuth(proxy) },
+    })
+    open.push(tunnel)
+    tunnel.on('connect', (proxyResponse, socket) => {
+      open.push(socket)
+      if (proxyResponse.statusCode !== 200) {
+        socket.destroy()
+        fail(new Error(`dsh-deepseek-vision: 代理 ${proxy.origin} 拒绝了 CONNECT（HTTP ${proxyResponse.statusCode}）。请检查代理设置或改用本地文件路径。`))
+        return
+      }
+      // ALPNProtocols 不能省。走 https.Agent 的常规请求会自带它，而这里是在隧道的
+      // 裸 socket 上手动做 TLS —— 不声明的话，部分服务端（实测 www.baidu.com）
+      // 的握手会**永久挂住**：没有报错、没有 RST，就是不回 ServerHello。
+      arm(httpsRequest({
+        socket,
+        servername: target.hostname,
+        ALPNProtocols: ['http/1.1'],
+        hostname: target.hostname,
+        port,
+        path,
+        headers,
+        agent: false,
+      }, onResponse))
+    })
+    tunnel.on('error', onError)
+    tunnel.setTimeout(REMOTE_TIMEOUT_MS, () => tunnel.destroy(new Error('ETIMEDOUT')))
+    tunnel.end()
+  })
+}
 
 /**
  * 下载一张远程图片到落盘目录。
@@ -230,14 +428,24 @@ const MAX_REMOTE_BYTES = 20 * 1024 * 1024
  * @throws 请求失败、类型不是图片、或超过 {@link MAX_REMOTE_BYTES} 时抛出。
  */
 async function fetchRemoteImage(url: string): Promise<string> {
-  const response = await fetch(url)
-  if (!response.ok) {
+  const mb = (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(1)} MB`
+  const response = await getRemote(url).catch((error: unknown) => {
+    if (error instanceof TooLargeError) {
+      throw new Error(
+        `dsh-deepseek-vision: 图片 ${mb(error.bytes)}，超过上限 ${mb(MAX_REMOTE_BYTES)}。`
+        + ' 识图按像素计费，超大图既贵又会被降采样。请先裁剪或压缩到上限以内再传，'
+        + '或只截取你真正要看的那一块 —— 局部图的判定精度本来也更高。',
+      )
+    }
+    throw error
+  })
+  if (response.status < 200 || response.status >= 300) {
     throw new Error(
       `dsh-deepseek-vision: 下载图片失败 HTTP ${response.status}。`
       + ' 若该图需要登录态（飞书、Notion 等私有文档），请先用对应的 skill 或带凭据的命令把它下载到本地，再把本地路径传给本工具。',
     )
   }
-  const contentType = (response.headers.get('content-type') ?? '').split(';')[0].trim()
+  const contentType = response.contentType
   // 必须在受支持的类型表里，不能只判 image/*：SVG 之类会被下面的扩展名反查兜底成 .png，
   // 于是 attachment 服务报「声明类型与字节不符」，而真正的原因是「不支持这个格式」。
   const mediaType = Object.values(IMAGE_MEDIA_TYPES).includes(contentType as ImageMediaType)
@@ -250,15 +458,7 @@ async function fetchRemoteImage(url: string): Promise<string> {
       + (contentType.includes('svg') ? ' SVG 等矢量格式请先转成位图再传。' : ' 请确认该地址直接指向图片文件，而不是包含图片的网页。'),
     )
   }
-  const data = Buffer.from(await response.arrayBuffer())
-  if (data.byteLength > MAX_REMOTE_BYTES) {
-    const mb = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`
-    throw new Error(
-      `dsh-deepseek-vision: 图片 ${mb(data.byteLength)}，超过上限 ${mb(MAX_REMOTE_BYTES)}。`
-      + ' 识图按像素计费，超大图既贵又会被降采样。请先裁剪或压缩到上限以内再传，'
-      + '或只截取你真正要看的那一块 —— 局部图的判定精度本来也更高。',
-    )
-  }
+  const data = response.data
   await mkdir(SPILL_DIR, { recursive: true })
   // 用 URL 的哈希命名，同一张图重复取只写一次。
   const name = createHash('sha256').update(url).digest('hex').slice(0, 32)
@@ -372,7 +572,12 @@ export function apply(ctx: Context, config: Config): void {
     description:
       '看一张图并回答关于它的问题。图片不进入本模型的上下文 —— 它被转交给配置的多模态模型，'
       + '只有回答的文字回到这里。用户粘贴图片时，你看到的是一行 `[图片 …]` 提示；'
-      + '想知道图上是什么，把提示里的附件 id 传给本工具。',
+      + '想知道图上是什么，把提示里的附件 id 传给本工具。'
+      + '\n\n一次把要读的点**一起问完**（"标题是什么？按钮文案是什么？右上角图标是什么？"），'
+      + '不要一个问题调一次 —— 每次调用都要重新把整张图送进识图模型，按像素计费。'
+      + '\n\n返回的内容与你的记忆或常识冲突时，**以本工具看到的为准**：图可能被改过、可能不是你以为的那个版本。'
+      + '需要确认就带着更具体的问题再调一次本工具。'
+      + '不要改用读源码、下载图片自己做像素分析、或凭印象作答来代替看图 —— 那既慢又不可靠。',
     parameters: {
       image_path: {
         type: 'string',
