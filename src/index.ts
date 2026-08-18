@@ -510,6 +510,10 @@ async function spillImages(ctx: Context, blocks: readonly ContentBlock[]): Promi
   await mkdir(SPILL_DIR, { recursive: true })
   for (const block of images) {
     const ref = block.attachment
+    // 已落过盘就跳过。attachmentId 是内容寻址的（`sha256:…`），同一个 id 必然是同一份字节，
+    // 落盘路径也由它推出 —— 重写一遍不会得到不同结果。不跳过的话每个 pre-step 都会把
+    // 整段历史里的图片重新读出来再写一遍，长循环里就是几十 MB 的白做功。
+    if (spilled.has(ref.attachmentId)) continue
     const path = spillPath(ref.attachmentId, ref.mediaType)
     try {
       const stored = await ctx.attachments.readImage(ref)
