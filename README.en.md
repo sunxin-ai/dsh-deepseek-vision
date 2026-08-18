@@ -8,8 +8,9 @@
 **Let text-only models in DeepSeek Harness read images.**
 
 - **Any text-only model, not just DeepSeek.** The OpenAI-compatible endpoints you wire up
-  yourself work too. On the day official multimodal ships, this plugin steps aside on its own —
-  you can leave it installed.
+  yourself work too (verified against `z-ai/glm-5.2` on OpenRouter). **The model must support tool
+  calling** — it has to be able to call `deepseek_vision` itself. On the day official multimodal
+  ships, this plugin steps aside on its own — you can leave it installed.
 - **Looking is a tool, not a pipeline.** Images never enter the main model's context. It sees a
   one-line `[图片 …]` pointer and calls `deepseek_vision` when it decides it needs to. Not looking
   costs nothing; what to ask is the model's call.
@@ -407,6 +408,9 @@ model will be told to call a tool that no longer exists; remove the plugin first
   present is patched (`src/*.ts` for source checkouts, `lib/index.js` for npm installs) — there is
   no reliable way to tell which one is live, so both get changed; a source checkout therefore gains
   a few untracked `.dsh-design-qa-orig` backup files.
+- **The model must support tool calling.** The whole mechanism is "model sees a pointer, decides to
+  call the tool". A text-only model without tool calling just sees a `[图片 …]` line and can go no
+  further. Check that your endpoint supports the `tools` parameter before configuring a route.
 - **The `attachment=<id>` form is process-local**: the id → path index lives in memory and is gone
   after a restart. Use a file path instead.
 - **No multi-image comparison**: `deepseek_vision` looks at one image per call. Side-by-side
