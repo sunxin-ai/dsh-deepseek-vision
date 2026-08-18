@@ -8,6 +8,11 @@
 
 **Let text-only models in DeepSeek Harness read images.**
 
+This exists to make **product design** work as a capability on DSH: write an implementation from a
+mock, judge how faithfully it matches, fix what doesn't, repeat. DeepSeek can write the code but
+cannot see the image, so it cannot do the judging. This plugin lends it that ability through a
+tool — the eye it needs to actually run a product-design loop.
+
 - **Any text-only model, not just DeepSeek.** The OpenAI-compatible endpoints you wire up
   yourself work too (verified against `z-ai/glm-5.2` on OpenRouter). **The model must support tool
   calling** — it has to be able to call `deepseek_vision` itself. On the day official multimodal
@@ -16,7 +21,11 @@
   one-line `[图片 …]` pointer and calls `deepseek_vision` when it decides it needs to. Not looking
   costs nothing; what to ask is the model's call.
 - **Ships with an evaluation you can run.** Four fixtures, twenty-three injected defects, four
-  pass lines. Swap the vision model and re-run it to find out whether the new one can do the job.
+  pass lines. It answers "is this borrowed eye fit to be the judge in the loop", not "did the model
+  respond". **Seeing is not the same as being usable for judgement**: a model can see yet fail to
+  look unprompted, fabricate, drift between runs, or report something you cannot act on — one pass
+  line per failure mode. Swap the vision model and re-run it to find out whether the new one can do
+  the job.
 
 ---
 
