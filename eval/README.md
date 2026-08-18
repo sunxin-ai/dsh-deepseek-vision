@@ -38,9 +38,24 @@
 | `tilebench.py` | 跑判定，支持多供应商（OpenAI 兼容端点） |
 | `score_facets.py` | 打分，只统计表态分布，**不做关键词自动判分** |
 | `pair.mjs` | 把设计稿与实现的区块图并排拼成送检图 |
+| `runs/` | **本文与 `../README.md` 里每个数字的原始模型输出**，逐格未编辑，含各自用的夹具 |
 
 每组夹具是 `design.html`（设计稿）+ `v1.html`（忠实实现）+ `v2.html`（注入版）+ `defects.md`（真值）。
 `v1` 与 `design` 的残余差异 0.018%–0.185%，全部落在自绘图标笔画与文字亚像素上。
+
+**当前跑分覆盖的是 `landing` 一组。** 真值四组齐全（23 条，`evalset/fixtures.mjs` 有机器可读版，
+`assert.mjs` 做像素级注入断言），但 `tilebench.py` 的 `REGION_NAMES` 只定义了 `landing` 的 6 个
+区块描述，`facets` / `pairs` 跑另外三组会在查不到区块名时抛 `KeyError`。
+
+要覆盖全部 23 条得改两处：`tilebench.py` 的 `REGION_NAMES` 补齐另外三组的区块描述（跑得动），
+`score_facets.py` 改成读 `evalset/fixtures.mjs` 而非硬编码的 `LANDING_DEFECTS`（算得出召回）。
+`facets` / `pairs` 这两条命令本身不硬编码夹具 —— 它们按 `pairs/{fixture}__{arm}__{region}.png`
+的文件名遍历，所以补齐区块名之后不需要再动它们。
+
+`REGION_NAMES` 里另有 `header` / `ring` / `stats` / `chart` / `tabbar` 五个区块，**不属于 `evalset/`**：
+它们是 `probe` / `judge` 两条命令的区块常量 `REGIONS`，服务于 `runs/probe-mobile/` 那组夹具。
+补齐时要留着它们；`header` 与 `chart` 在 `evalset/` 里同名而不同物，需要按夹具区分，
+否则会静默送出一段描述错对象的提示词。
 
 ## 跑之前
 

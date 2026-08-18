@@ -17,9 +17,11 @@
   它得能自己调 `deepseek_vision`。官方多模态上线那天，本插件自动让位、可原样留着。
 - **把识图做成一个 tool。** 图片不进主模型上下文；它看到一行 `[图片 …]` 提示，需要时自己调
   `deepseek_vision`。不看就不产生任何成本，问什么由模型自己决定。
-- **附完整 eval，可自测。** 4 组夹具、23 处注入缺陷、四条通过线 —— 回答的是「借来的这只眼
+- **附 eval 与全部原始输出。** 4 组夹具、23 处注入缺陷、四条通过线 —— 回答的是「借来的这只眼
   够不够格当判定闭环里的裁判」，而不是「模型跑没跑通」。**能看见 ≠ 可用于判定**：看得见但不
-  主动看、会编、不稳、说不清，四种失效各对应一条通过线。换模型后重跑一遍就知道能不能用。
+  主动看、会编、不稳、说不清，四种失效各对应一条通过线。真值四组齐全、有像素级注入断言，
+  **跑分脚本目前接通的是其中 `landing` 一组**；下面每个数字的逐格模型原文都在
+  [`eval/runs/`](https://github.com/sunxin-ai/dsh-design-qa/tree/main/eval/runs)，可自行复核。
 
 ---
 
@@ -129,16 +131,24 @@ node install.mjs --revert-patches 可一键还原。把第 4 步的完整输出�
 
 ## 引擎为什么是 Qwen：它通过了基准测试
 
-不是随手挑的。[`eval/`](https://github.com/sunxin-ai/dsh-design-qa/tree/main/eval)
-下有完整的基准规范与 4 组夹具（23 处缺陷），横评结论：
+不是随手挑的。基准规范在 [`eval/`](https://github.com/sunxin-ai/dsh-design-qa/tree/main/eval)。
+下面两组数字**来自两批实验、两组夹具**，逐格原始输出都在
+[`eval/runs/`](https://github.com/sunxin-ai/dsh-design-qa/tree/main/eval/runs)。
 
-| 模型 | 定向探针 | 难档（字重 800 vs 500） |
-|---|---|---|
-| **`qwen3.8-max`** | **24/24** | **12/12 方向全对** |
-| `qwen3-vl-plus` | 21/24 | 1/4 |
-| `moonshot-v1-128k-vision` | 18/24 | 8/15 ≈ 随机 |
+**三模型横评** —— 6 个定向探针 × 4 种送检方式，跑在一组 mobile dashboard 夹具上。
+那组夹具随附于 [`eval/runs/probe-mobile/`](https://github.com/sunxin-ai/dsh-design-qa/tree/main/eval/runs/probe-mobile)，
+**不是 `evalset/` 里那 4 组** —— 拿 `evalset/` 复现不出这张表：
 
-零差异对照（把设计稿和它自己配对，报出任何差异都是幻觉）：**`qwen3.8-max` 6/6 全报一致，0 条幻觉。**
+| 模型 | 定向探针 | 难档（字重 800 vs 500） | 原始输出 |
+|---|---|---|---|
+| **`qwen3.8-max`** | **24/24** | **12/12 方向全对** | 逐格可查 |
+| `qwen3-vl-plus` | 21/24 | 1/4 | ⚠️ 只留下聚合数字 |
+| `moonshot-v1-128k-vision` | 18/24 | 8/15 ≈ 随机 | 逐格可查 |
+
+**零差异对照** —— 把设计稿和它自己配对，报出的任何差异都是幻觉。这是另一批实验，
+跑在 `evalset/landing` 上：**`qwen3.8-max` 6/6 全报一致，0 条幻觉。**
+横评那组夹具测不出幻觉率（它的 `v1` 本身就不忠实，模型报的「差异」大多为真），
+**因此横评表里另外两个模型没有这项数据。**
 
 `qwen3.8-max` 是唯一在难档上稳定的 —— 另外两家在字重方向上等同掷硬币，
 而**方向错的判断比漏检更危险**，它会让修复朝反方向走。
@@ -179,6 +189,9 @@ llm-pi-ai:
 换模型后建议用 [`eval/`](https://github.com/sunxin-ai/dsh-design-qa/tree/main/eval)
 重跑一遍基准（只在 GitHub 仓库里，不随包分发），尤其看难档与零差异对照那两项：
 **能看见 ≠ 可用**，一个召回高但幻觉多、或每次结论都漂移的模型会让判定循环发散。
+
+这两项分属两组夹具：难档用 `tilebench.py probe`，跑 `runs/probe-mobile/` 那组；
+零差异对照用 `tilebench.py pairs`，跑 `evalset/landing`。
 
 ## 工具
 

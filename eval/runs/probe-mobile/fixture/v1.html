@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Today — v1 faithful</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { width:393px; height:852px; }
+  body {
+    background:#F6F2EC;
+    font-family:-apple-system,"SF Pro Display","Helvetica Neue",Inter,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    display:flex; flex-direction:column;
+  }
+  .page { flex:1; padding:0 26px; display:flex; flex-direction:column; }
+
+  .greet { margin-top:70px; font-size:29px; font-weight:800; letter-spacing:-0.8px; color:#282D36; line-height:1.12; }
+  .date  { margin-top:10px; font-size:14px; font-weight:400; color:#918C86; letter-spacing:0.1px; }
+
+  .ringcard {
+    margin-top:24px; height:331px; background:#FFFFFF; border-radius:22px;
+    box-shadow:0 6px 22px rgba(120,105,90,.07);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .ringwrap { position:relative; width:280px; height:280px; display:flex; align-items:center; justify-content:center; }
+  .ringwrap svg { position:absolute; inset:0; }
+  .ringnum { font-size:47px; font-weight:800; color:#282D36; letter-spacing:-1.5px; line-height:1; }
+  .ringlbl { margin-top:9px; font-size:15px; font-weight:400; color:#9C978F; }
+  .ringtext { display:flex; flex-direction:column; align-items:center; }
+
+  .stats { margin-top:20px; display:flex; gap:10px; }
+  .stat {
+    flex:1; height:88px; border:1px solid #E6DFD6; border-radius:14px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:9px;
+  }
+  .stat svg { width:22px; height:22px; }
+  .statval { font-size:17px; font-weight:700; color:#282D36; }
+  .statval em { font-style:normal; font-size:13px; font-weight:400; color:#9C978F; margin-left:2px; }
+
+  .chart { margin-top:32px; display:flex; align-items:flex-end; justify-content:space-between; height:100px; }
+  .barcol { display:flex; flex-direction:column; align-items:center; width:32px; }
+  .bar { width:32px; background:#FBAE96; border-radius:8px; }
+  .day { margin-top:11px; font-size:11px; color:#B3ADA5; }
+
+  .tabbar {
+    height:74px; border-top:1px solid #EAE4DC; background:#F8F5F0;
+    display:flex; align-items:center; justify-content:space-around; padding:0 30px 12px;
+  }
+  .tabbar svg { width:26px; height:26px; }
+</style>
+</head>
+<body>
+  <div class="page">
+    <div class="greet">Good morning Alex</div>
+    <div class="date">Tuesday March 12</div>
+
+    <div class="ringcard">
+      <div class="ringwrap">
+        <svg viewBox="0 0 280 280" fill="none">
+          <circle cx="140" cy="140" r="131" stroke="#F26B45" stroke-width="14"/>
+        </svg>
+        <div class="ringtext">
+          <div class="ringnum">8,420</div>
+          <div class="ringlbl">steps</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#2B3038" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 18l3-3 2 2 4-5"/><circle cx="17" cy="8" r="2"/><path d="M4 20h3"/>
+        </svg>
+        <div class="statval">5.2<em>km</em></div>
+      </div>
+      <div class="stat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#2B3038" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="13" r="7"/><path d="M12 13l3-2M10 3h4"/>
+        </svg>
+        <div class="statval">412<em>kcal</em></div>
+      </div>
+      <div class="stat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#2B3038" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="6" y="4" width="12" height="17" rx="2.5"/><path d="M9.5 12.5l1.8 1.8 3.4-3.6M10 4V2.6h4V4"/>
+        </svg>
+        <div class="statval">62<em>min</em></div>
+      </div>
+    </div>
+
+    <div class="chart">
+      <div class="barcol"><div class="bar" style="height:44px"></div><div class="day">A</div></div>
+      <div class="barcol"><div class="bar" style="height:62px"></div><div class="day">D</div></div>
+      <div class="barcol"><div class="bar" style="height:76px"></div><div class="day">E</div></div>
+      <div class="barcol"><div class="bar" style="height:94px"></div><div class="day">W</div></div>
+      <div class="barcol"><div class="bar" style="height:70px"></div><div class="day">J</div></div>
+      <div class="barcol"><div class="bar" style="height:82px"></div><div class="day">Ü</div></div>
+      <div class="barcol"><div class="bar" style="height:52px"></div><div class="day">F</div></div>
+    </div>
+  </div>
+
+  <div class="tabbar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#2B3038" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 10.5L12 4l8 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M10 21v-6h4v6"/>
+    </svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="#B3ADA5" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3.5" y="5" width="17" height="14" rx="3"/><path d="M7.5 10h7M7.5 14h4"/>
+    </svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="#B3ADA5" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 4l8 8-8 8-8-8z"/><path d="M12 9.5l2.5 2.5-2.5 2.5"/>
+    </svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="#B3ADA5" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="7" width="18" height="10" rx="5"/><circle cx="9" cy="12" r="2"/>
+    </svg>
+  </div>
+</body>
+</html>

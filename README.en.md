@@ -20,12 +20,15 @@ tool — the eye it needs to actually run a product-design loop.
 - **Looking is a tool, not a pipeline.** Images never enter the main model's context. It sees a
   one-line `[图片 …]` pointer and calls `deepseek_vision` when it decides it needs to. Not looking
   costs nothing; what to ask is the model's call.
-- **Ships with an evaluation you can run.** Four fixtures, twenty-three injected defects, four
-  pass lines. It answers "is this borrowed eye fit to be the judge in the loop", not "did the model
-  respond". **Seeing is not the same as being usable for judgement**: a model can see yet fail to
-  look unprompted, fabricate, drift between runs, or report something you cannot act on — one pass
-  line per failure mode. Swap the vision model and re-run it to find out whether the new one can do
-  the job.
+- **Ships with an evaluation and every raw output behind it.** Four fixtures, twenty-three
+  injected defects, four pass lines. It answers "is this borrowed eye fit to be the judge in the
+  loop", not "did the model respond". **Seeing is not the same as being usable for judgement**:
+  a model can see yet fail to look unprompted, fabricate, drift between runs, or report something
+  you cannot act on — one pass line per failure mode. Ground truth is complete for all four
+  fixtures and backed by pixel-level injection assertions; **the scoring scripts are currently
+  wired to `landing` only**. Every number below comes with its per-cell model transcript in
+  [`eval/runs/`](https://github.com/sunxin-ai/dsh-design-qa/tree/main/eval/runs), so you can
+  check the work yourself.
 
 ---
 
@@ -148,17 +151,27 @@ back and look for yellow text in the final section.
 
 ## Why Qwen: it passed the benchmark
 
-Not a coin flip. [`eval/`](https://github.com/sunxin-ai/dsh-design-qa/tree/main/eval) holds the full
-benchmark spec and four fixtures (23 defects). Cross-model results:
+Not a coin flip. The benchmark spec lives in
+[`eval/`](https://github.com/sunxin-ai/dsh-design-qa/tree/main/eval). The two sets of numbers below
+come from **two separate runs on two different fixtures**; both ship with their per-cell transcripts
+in [`eval/runs/`](https://github.com/sunxin-ai/dsh-design-qa/tree/main/eval/runs).
 
-| Model | Targeted probes | Hard tier (font-weight 800 vs 500) |
-|---|---|---|
-| **`qwen3.8-max`** | **24/24** | **12/12, direction always right** |
-| `qwen3-vl-plus` | 21/24 | 1/4 |
-| `moonshot-v1-128k-vision` | 18/24 | 8/15 ≈ chance |
+**Cross-model comparison** — six targeted probes × four submission modes, run against a mobile
+dashboard fixture. That fixture ships in
+[`eval/runs/probe-mobile/`](https://github.com/sunxin-ai/dsh-design-qa/tree/main/eval/runs/probe-mobile)
+and is **not one of the four in `evalset/`** — you cannot reproduce this table from `evalset/`:
 
-Zero-difference control (pair a mock with itself; any reported difference is a hallucination):
-**`qwen3.8-max` called all 6 identical, 0 hallucinations.**
+| Model | Targeted probes | Hard tier (font-weight 800 vs 500) | Raw output |
+|---|---|---|---|
+| **`qwen3.8-max`** | **24/24** | **12/12, direction always right** | per-cell |
+| `qwen3-vl-plus` | 21/24 | 1/4 | ⚠️ aggregate only |
+| `moonshot-v1-128k-vision` | 18/24 | 8/15 ≈ chance | per-cell |
+
+**Zero-difference control** — pair a mock with itself; any reported difference is a hallucination.
+This is a separate run, against `evalset/landing`: **`qwen3.8-max` called all 6 identical,
+0 hallucinations.** The cross-model fixture cannot measure hallucination rate at all (its `v1` is
+itself unfaithful, so most differences the models report are real), **so the other two models in
+that table have no figure for this.**
 
 `qwen3.8-max` is the only one that holds up on the hard tier. The other two are coin flips on
 font-weight direction — and **a confidently wrong direction is more dangerous than a miss**,
@@ -200,8 +213,11 @@ JSDoc) — declaring images an endpoint refuses fails at call time, not at confi
 
 After switching, re-run [`eval/`](https://github.com/sunxin-ai/dsh-design-qa/tree/main/eval)
 (GitHub only, not shipped in the package), and look hardest at the hard tier and the zero-difference
-control: **seeing is not the same as usable.** A model with good recall but frequent hallucinations,
-or one whose verdicts drift between runs, makes the judgement loop diverge instead of converge.
+control. They live on different fixtures: the hard tier runs through `tilebench.py probe` against
+the `runs/probe-mobile/` fixture, the zero-difference control through `tilebench.py pairs` against
+`evalset/landing`. **Seeing is not the same as usable.** A model with good recall but frequent
+hallucinations, or one whose verdicts drift between runs, makes the judgement loop diverge instead
+of converge.
 
 ## The tool
 

@@ -10,7 +10,8 @@
 /.env
 /.env.*
 
-# eval 的可再生产物
+# eval 的可再生产物。注意 /eval/runs/ 不在此列 —— 那是 README 结论的原始模型输出，
+# 有意入库，别用更宽的通配把它一起挡掉。
 /eval/**/crops/
 /eval/**/results*/
 /eval/**/pairs/

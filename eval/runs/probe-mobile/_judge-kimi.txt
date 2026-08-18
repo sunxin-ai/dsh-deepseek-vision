@@ -1,0 +1,10 @@
+moonshot-v1-128k-vision-preview v1 header   in=  1445 out=  254   3.6s
+moonshot-v1-128k-vision-preview v1 ring     in=  1438 out=  429   5.9s
+moonshot-v1-128k-vision-preview v1 stats    in=  1441 out=  250   3.9s
+moonshot-v1-128k-vision-preview v1 chart    in=  1437 out=  266   4.4s
+moonshot-v1-128k-vision-preview v1 tabbar   in=  1437 out=  202   3.6s
+moonshot-v1-128k-vision-preview v2 header   in=  1445 out=  333   4.2s
+moonshot-v1-128k-vision-preview v2 ring     in=  1438 out=  214   3.5s
+moonshot-v1-128k-vision-preview v2 stats    in=  1441 out=  293   4.0s
+moonshot-v1-128k-vision-preview v2 chart    in=  1437 out=  308   4.1s
+moonshot-v1-128k-vision-preview v2 tabbar   in=  1437 out=  282   4.0s

@@ -1,0 +1,90 @@
+design  cta                字体排印   in= 1594 out=  21  1.8s  一致 两图文字的字重、字号、行高及字间距视觉表现完全相同。
+design  cta                间距节奏   in= 1596 out=  20  1.8s  一致 两图元素间距、边距、对齐及圆角均无可见差异。
+design  cta                颜色     in= 1597 out=  24  1.5s  一致 背景、文字及按钮颜色在 A 与 B 中目测完全相同，无色差。
+design  cta                素材保真   in= 1605 out=  23  1.3s  一致 两者均无图标或图形素材，仅含文字与圆角按钮，形状无差异。
+design  cta                文案     in= 1592 out=  17  1.2s  一致 两边标题、副标题及按钮文字逐字核对完全相同。
+design  features           字体排印   in= 2349 out=  21  2.3s  一致 左右两侧文字的字重、字号、行高及字间距视觉表现完全相同。
+design  features           间距节奏   in= 2351 out=  27  2.2s  一致 卡片间距、内边距、圆角及对齐方式在 A 与 B 中视觉表现完全相同。
+design  features           颜色     in= 2352 out=  22  1.7s  一致 经比对，左右两侧卡片的背景、文字、图标及边框颜色均无差异。
+design  features           素材保真   in= 2360 out=  20  1.3s  一致 两侧图标形状完全相同，均为柱状图、放大镜与盾牌勾选图形。
+design  features           文案     in= 2347 out=  19  1.6s  一致 经逐字核对，左右两侧卡片的标题与正文内容完全相同。
+design  hero-actions       字体排印   in= 1198 out=  21  1.7s  一致 两段文字的字重、字号、行高与字间距在视觉上均无差异。
+design  hero-actions       间距节奏   in= 1200 out=  27  1.5s  一致 两按钮间距、圆角及与上下文案的留白在 A、B 中目测完全相同。
+design  hero-actions       颜色     in= 1201 out=  17  1.4s  一致 两侧背景、文字、按钮及边框颜色肉眼观察无差异。
+design  hero-actions       素材保真   in= 1209 out=  21  1.9s  一致 该区块无图标或图形素材，仅含按钮与文字，形状无差异。
+design  hero-actions       文案     in= 1196 out=  18  2.0s  一致 经逐字核对，标题、按钮及说明文字内容完全相同。
+design  hero-head          字体排印   in= 1314 out=  21  1.5s  一致 两图文字的字重、字号、行高及字间距视觉表现完全相同。
+design  hero-head          间距节奏   in= 1316 out=  21  1.7s  一致 两图中标签与标题的间距、对齐及圆角均无可见差异。
+design  hero-head          颜色     in= 1317 out=  22  1.7s  一致 背景、标签、标题文字颜色在 A 与 B 中目测完全相同。
+design  hero-head          素材保真   in= 1325 out=  22  1.8s  一致 该切片仅含文字与胶囊标签，无图标或图形素材，形状无差异。
+design  hero-head          文案     in= 1312 out=  21  2.0s  一致 两边文字内容完全相同，均为"NEW — Realtime insights"及主标题。
+design  nav                字体排印   in= 1205 out=  28  1.9s  一致 经比对，导航栏各文字的字重、字号等排版属性在 A、B 中均无可见差异。
+design  nav                间距节奏   in= 1207 out=  23  1.6s  一致 各元素间距、对齐及按钮圆角在 A 与 B 中视觉表现一致。
+design  nav                颜色     in= 1208 out=  23  1.7s  一致 背景、文字、按钮及图标颜色在 A 与 B 中均无可见差异。
+design  nav                素材保真   in= 1216 out=  24  1.5s  一致 两侧 Logo 图标形状完全相同，均为圆角矩形内含折线，无简化或替换。
+design  nav                文案     in= 1203 out=  29  1.6s  一致 两边文字内容完全相同，均为 Northwind、Product、Solutions、Pricing、Docs、Sign in、Get started。
+design  seam-features-cta  字体排印   in= 2354 out=  21  3.9s  一致 两图文字字重、字号、行高及字间距视觉表现完全相同。
+design  seam-features-cta  间距节奏   in= 2356 out=  25  1.5s  一致 两图深色条圆角、内边距、按钮位置及上方卡片间距均无可见差异。
+design  seam-features-cta  颜色     in= 2357 out=  21  1.6s  一致 深色条背景、文字及按钮颜色在 A 与 B 中完全相同。
+design  seam-features-cta  素材保真   in= 2365 out=  22  1.6s  一致 该切片内无图标或图形素材，仅含文本与按钮，形状无差异。
+design  seam-features-cta  文案     in= 2352 out=  15  1.6s  一致 两边文字内容逐字核对完全相同，无任何差异。
+v1      cta                字体排印   in= 1594 out=  21  2.2s  一致 两图文字字重、字号、行高及字间距视觉表现完全相同。
+v1      cta                间距节奏   in= 1596 out=  20  1.7s  一致 两图元素间距、边距、对齐及圆角均无可见差异。
+v1      cta                颜色     in= 1597 out=  24  1.7s  一致 背景、文字及按钮颜色在 A 与 B 中目测完全相同，无色差。
+v1      cta                素材保真   in= 1605 out=  23  1.8s  一致 两者均无图标或图形素材，仅含文字与圆角按钮，形状无差异。
+v1      cta                文案     in= 1592 out=  17  2.2s  一致 两边标题、副标题及按钮文字逐字核对完全相同。
+v1      features           字体排印   in= 2349 out=  20  3.1s  一致 左右两侧文字的字重、字号、行高及字间距视觉上完全一致。
+v1      features           间距节奏   in= 2351 out=  27  1.9s  一致 卡片间距、内边距、圆角及对齐方式在 A 与 B 中均无可见差异。
+v1      features           颜色     in= 2352 out=  19  1.5s  一致 左右两侧卡片背景、文字、图标及边框颜色均无可见差异。
+v1      features           素材保真   in= 2360 out=  23  1.8s  一致 图标形状在A与B中完全相同，均为柱状图、放大镜和盾牌勾选。
+v1      features           文案     in= 2347 out=  19  1.3s  一致 经逐字核对，左右两侧卡片的标题与正文内容完全相同。
+v1      hero-actions       字体排印   in= 1198 out=  26  1.4s  一致 两段文字的字重、字号、行高与字间距在 A、B 中均无可见差异。
+v1      hero-actions       间距节奏   in= 1200 out=  21  1.3s  一致 两图按钮间距、圆角及文字对齐等布局细节均无可见差异。
+v1      hero-actions       颜色     in= 1201 out=  21  1.3s  一致 两侧背景、文字、按钮及边框颜色目测完全相同，无可见差异。
+v1      hero-actions       素材保真   in= 1209 out=  21  1.5s  一致 该区块无图标或图形素材，仅含文字与按钮，形状无差异。
+v1      hero-actions       文案     in= 1196 out=  18  1.2s  一致 经逐字核对，标题、按钮及说明文字内容完全相同。
+v1      hero-head          字体排印   in= 1314 out=  21  1.5s  一致 两图文字字重、字号、行高及字间距视觉表现完全相同。
+v1      hero-head          间距节奏   in= 1316 out=  21  2.0s  一致 两图中标签、标题的间距、对齐及圆角均无可见差异。
+v1      hero-head          颜色     in= 1317 out=  22  1.3s  一致 背景、标签、标题文字颜色在 A 与 B 中目测完全相同。
+v1      hero-head          素材保真   in= 1325 out=  21  1.2s  一致 该区块无图标或图形素材，仅有文字与胶囊标签，形状无差异。
+v1      hero-head          文案     in= 1312 out=  21  1.2s  一致 两边文字内容完全相同，均为"NEW — Realtime insights"及主标题。
+v1      nav                字体排印   in= 1205 out=  26  2.5s  一致 经对比，导航栏各文字的字重、字号等排版属性在A与B中无可见差异。
+v1      nav                间距节奏   in= 1207 out=  23  1.3s  一致 各元素间距、对齐及按钮圆角在 A 与 B 中视觉表现一致。
+v1      nav                颜色     in= 1208 out=  21  1.7s  一致 经比对，导航栏各元素颜色在 A 与 B 中完全一致。
+v1      nav                素材保真   in= 1216 out=  24  1.7s  一致 两侧 Logo 图标形状完全相同，均为圆角方块内含折线，无简化或替换。
+v1      nav                文案     in= 1203 out=  29  1.7s  一致 两边文字内容完全相同，均为 Northwind、Product、Solutions、Pricing、Docs、Sign in、Get started。
+v1      seam-features-cta  字体排印   in= 2354 out=  21  1.5s  一致 两图文字字重、字号、行高及字间距视觉表现完全相同。
+v1      seam-features-cta  间距节奏   in= 2356 out=  25  1.6s  一致 两图深色条圆角、内边距、按钮位置及上方卡片间距均无可见差异。
+v1      seam-features-cta  颜色     in= 2357 out=  23  1.5s  一致 深色条背景、文字及按钮颜色在 A 与 B 中均无可见差异。
+v1      seam-features-cta  素材保真   in= 2365 out=  22  1.3s  一致 该切片内无图标或图形素材，仅含文本与按钮，形状无差异。
+v1      seam-features-cta  文案     in= 2352 out=  15  1.6s  一致 两边文字内容逐字核对完全相同，无任何差异。
+v2      cta                字体排印   in= 1594 out=  21  2.7s  一致 两图文字字重、字号、行高及字间距视觉表现完全相同。
+v2      cta                间距节奏   in= 1596 out=  32  1.8s  无法判断：图片为横向长条切片，上下边缘被裁切，无法完整观察容器的圆角半径及垂直方向的内边距。
+v2      cta                颜色     in= 1597 out=  24  1.3s  一致 背景、文字及按钮颜色在 A 与 B 中目测完全相同，无色差。
+v2      cta                素材保真   in= 1605 out=  22  1.4s  一致 两者均无图标或图形素材，仅含文字与按钮，形状方面无差异。
+v2      cta                文案     in= 1592 out=  17  1.3s  一致 两边标题、副标题及按钮文字逐字核对完全相同。
+v2      features           字体排印   in= 2349 out=  20  1.9s  一致 两图文字的字重、字号、行高及字间距视觉上完全一致。
+v2      features           间距节奏   in= 2351 out=  25  1.5s  一致 卡片间距、内边距、圆角及对齐方式在 A 与 B 中视觉一致。
+v2      features           颜色     in= 2352 out=  21  1.6s  无法判断：仅提供了一张图片，无法区分设计稿 A 与实现 B 进行对比。
+v2      features           素材保真   in= 2360 out=  35  1.8s  不一致：第5个卡片图标 / A 是放大镜 / B 是方块 第五张「Deep search」卡片图标在 B 中变成了空心方块。
+v2      features           文案     in= 2347 out=  18  1.4s  一致 六张卡片的标题与正文逐字核对，内容完全相同。
+v2      hero-actions       字体排印   in= 1198 out=  20  1.4s  一致 两段文字的字重、字号、行高与字间距在视觉上完全相同。
+v2      hero-actions       间距节奏   in= 1200 out=  21  1.3s  一致 两版按钮间距、圆角及文字对齐等布局参数目测无差异。
+v2      hero-actions       颜色     in= 1201 out=  19  1.4s  一致 经比对，两侧背景、文字、按钮及边框颜色均无差异。
+v2      hero-actions       素材保真   in= 1209 out=  22  2.2s  一致 两图均无图标或图形素材，按钮皆为圆角矩形，形状无差异。
+v2      hero-actions       文案     in= 1196 out=  42  2.1s  不一致：底部说明小字 / A 是12,000+ / B 是21,000+ 其余标题与按钮文字一致，仅底部数字不同。
+v2      hero-head          字体排印   in= 1314 out=  21  2.3s  一致 两图文字字重、字号、行高及字间距视觉表现完全相同。
+v2      hero-head          间距节奏   in= 1316 out=  21  2.3s  一致 两图中标签、标题的间距、对齐及圆角均无可见差异。
+v2      hero-head          颜色     in= 1317 out=  22  1.9s  一致 背景、标签、标题文字颜色在 A 与 B 中目测完全相同。
+v2      hero-head          素材保真   in=    - out=   -  0.0s  __URLError__ <urlopen error [SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of pro
+v2      hero-head          文案     in= 1312 out=  21  2.1s  一致 两边文字内容完全相同，均为"NEW — Realtime insights"及主标题。
+v2      nav                字体排印   in= 1205 out=  20  1.6s  一致 两边导航文字的字重、字号、行高与字间距视觉上一致。
+v2      nav                间距节奏   in= 1207 out=  19  1.6s  一致 两图导航栏元素间距、对齐及圆角均无可见差异。
+v2      nav                颜色     in= 1208 out=  36  2.0s  不一致：Get started 按钮 / A 是蓝色 / B 是绿色 A 中按钮为蓝紫色，B 中变为绿色，其余颜色一致。
+v2      nav                素材保真   in= 1216 out=  24  1.7s  一致 两侧 Logo 图标形状完全相同，均为圆角方块内含折线，无简化或替换。
+v2      nav                文案     in= 1203 out=  29  2.3s  一致 两边文字内容完全相同，均为 Northwind、Product、Solutions、Pricing、Docs、Sign in、Get started。
+v2      seam-features-cta  字体排印   in= 2354 out=  21  3.2s  一致 两版文字的字重、字号、行高及字间距视觉表现完全相同。
+v2      seam-features-cta  间距节奏   in=    - out=   -  0.0s  __RemoteDisconnected__ Remote end closed connection without response
+v2      seam-features-cta  颜色     in= 2357 out=  21  1.9s  一致 深色条背景、文字及按钮颜色在A与B中均无可见差异。
+v2      seam-features-cta  素材保真   in= 2365 out=  23  1.6s  一致 该切片内无图标或图形素材，仅含文字与按钮，形状方面无差异。
+v2      seam-features-cta  文案     in= 2352 out=  15  1.4s  一致 两边文字内容逐字核对完全相同，无任何差异。

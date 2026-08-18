@@ -1,0 +1,36 @@
+moonshot-v1-128k-vision-preview 整页拼图 锚点·标题      in=  1070   1.1s  Good morning Alex
+moonshot-v1-128k-vision-preview 整页双图 锚点·标题      in=  2098   0.9s  Good morning Alex
+moonshot-v1-128k-vision-preview 分区拼图 锚点·标题      in=  1070   0.6s  Good morning Alex
+moonshot-v1-128k-vision-preview 分区双图 锚点·标题      in=  2098   0.5s  Good morning Alex
+moonshot-v1-128k-vision-preview 整页拼图带标注 锚点·标题      in=  1070   0.7s  A — DESIGN (source of truth)
+                       真值 锚点·标题      Good morning Alex
+moonshot-v1-128k-vision-preview 整页拼图 锚点·数字      in=  1072   0.8s  8,420
+moonshot-v1-128k-vision-preview 整页双图 锚点·数字      in=  2100   0.9s  8,420
+moonshot-v1-128k-vision-preview 分区拼图 锚点·数字      in=  1072   0.7s  8,420
+moonshot-v1-128k-vision-preview 分区双图 锚点·数字      in=  2100   0.8s  8,420
+moonshot-v1-128k-vision-preview 整页拼图带标注 锚点·数字      in=  1072   0.8s  2000
+                       真值 锚点·数字      8,420
+moonshot-v1-128k-vision-preview 整页拼图 D1 字重      in=  1082   1.0s  A 更粗。
+moonshot-v1-128k-vision-preview 整页双图 D1 字重      in=  2110   0.9s  A 更粗。
+moonshot-v1-128k-vision-preview 分区拼图 D1 字重      in=  1082   0.6s  A 更粗。
+moonshot-v1-128k-vision-preview 分区双图 D1 字重      in=  2110   0.6s  B 更粗。
+moonshot-v1-128k-vision-preview 整页拼图带标注 D1 字重      in=  1082   0.6s  A 更粗。
+                       真值 D1 字重      不一样，左(设计稿)更粗 —— 800 vs 500
+moonshot-v1-128k-vision-preview 整页拼图 D3 颜色      in=  1077   1.0s  不一样，左边是橙色，右边是黄色。
+moonshot-v1-128k-vision-preview 整页双图 D3 颜色      in=  2105   1.0s  不一样，A 是橙色，B 是黄色。
+moonshot-v1-128k-vision-preview 分区拼图 D3 颜色      in=  1077   0.8s  不一样，A 是橙色，B 是黄色。
+moonshot-v1-128k-vision-preview 分区双图 D3 颜色      in=  2105   0.8s  不一样，A 是橙色，B 是黄色。
+moonshot-v1-128k-vision-preview 整页拼图带标注 D3 颜色      in=  1077   0.6s  不一样，A 是绿色，B 是蓝色。
+                       真值 D3 颜色      不一样，左珊瑚橙 #F26B45 / 右芥末黄 #E8A33D
+moonshot-v1-128k-vision-preview 整页拼图 D5 文案      in=  1073   1.4s  左边设计稿 A 中的卡路里数字是“412 kcal”，右边前端实现 B 中的卡路里数字是“421 kcal”。
+moonshot-v1-128k-vision-preview 整页双图 D5 文案      in=  2101   1.3s  第一张图（设计稿 A）里的卡路里数字是：412 kcal。 第二张图（前端实现 B）里的卡路里数字是：421 kcal。
+moonshot-v1-128k-vision-preview 分区拼图 D5 文案      in=  1073   1.0s  A 里是“412 kcal”，B 里是“421 kcal”。
+moonshot-v1-128k-vision-preview 分区双图 D5 文案      in=  2101   1.1s  好的，A 和 B 里带 kcal 的那个卡路里数字分别是： - A: 412 kcal - B: 421 kcal
+moonshot-v1-128k-vision-preview 整页拼图带标注 D5 文案      in=  1073   0.9s  左边设计稿 A 中的卡路里数字是：`123 kcal` 右边前端实现 B 中的卡路里数字是：`123 kcal`
+                       真值 D5 文案      左 412，右 421
+moonshot-v1-128k-vision-preview 整页拼图 D4 素材      in=  1076   1.2s  A 和 B 底部标签栏的第一个图标形状不一样，A 像房子，B 像文件夹。
+moonshot-v1-128k-vision-preview 整页双图 D4 素材      in=  2104   1.0s  A 和 B 底部标签栏的第一个图标形状不一样，A 像房子，B 像矩形。
+moonshot-v1-128k-vision-preview 分区拼图 D4 素材      in=  1076   0.8s  A 和 B 底部标签栏的第一个图标形状不一样，A 像房子，B 像正方形。
+moonshot-v1-128k-vision-preview 分区双图 D4 素材      in=  2104   1.0s  A 和 B 底部标签栏的第一个图标形状不一样，A 图标像书本，B 图标像电脑屏幕。
+moonshot-v1-128k-vision-preview 整页拼图带标注 D4 素材      in=  1076   0.9s  A 和 B 底部标签栏的第一个图标形状不同，A 像一个矩形，B 像一个圆角矩形。
+                       真值 D4 素材      不一样，左是线性房子图标，右是空心方块
