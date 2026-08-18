@@ -21,6 +21,7 @@
     "cordis.patch.yml",
     "install.mjs",
     "README.md",
+    "README.en.md",
     "LICENSE",
     "NOTICE"
   ],

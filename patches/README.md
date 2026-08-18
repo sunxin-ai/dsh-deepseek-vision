@@ -1,6 +1,6 @@
 # 本体补丁
 
-`install.mjs` **默认就打这两处补丁**，不需要单独操作，也不需要告诉它 DSH 装在哪。
+`install.mjs` **默认就打这三处补丁**，不需要单独操作，也不需要告诉它 DSH 装在哪。
 本文档说明它改了什么、为什么、以及自动打不上时怎么手工重做。
 
 ```sh
@@ -9,11 +9,12 @@ node install.mjs --revert-patches    # 还原
 node install.mjs --no-patches ...    # 这次不打
 ```
 
-**只有需要「在对话框里直接粘贴图片」时才需要这两处补丁。**
+**只有需要「在对话框里直接粘贴图片」时才需要这三处补丁。**
 只用「文件路径 / URL / 附件 id + `deepseek_vision`」的话，加 `--no-patches`，插件独立可用。
 
-两处改动**必须同时存在或同时还原**。只还原准入那一处是安全的（粘图回到被拒绝的原样）；
-只还原序列化那一处会让图片撞上 `UNSUPPORTED_CONTENT`，那条会话再也走不下去。
+三处改动**必须同时存在或同时还原**。只还原准入那一处是安全的（粘图回到被拒绝的原样）；
+只还原序列化那两处之一，会让图片撞上 `UNSUPPORTED_CONTENT`，那条会话再也走不下去。
+`install.mjs` 把三处当一个事务：任一处算不出来就一个字节都不写。
 
 ## 一、`@deepseek-ai/dsh-host-apiproxy`：去掉图片准入拒绝
 
@@ -46,6 +47,26 @@ node install.mjs --no-patches ...    # 这次不打
 
 文件由插件在 `agent/pre-step` 落盘 —— 那一步**只落盘，不改动任何内容块**。
 
+## 三、`@deepseek-ai/dsh-llm-pi-ai`：同样把抛错换成文字指针
+
+`llm-pi-ai` 是 DSH 里配置**任意 OpenAI 兼容端点**的通用适配器，它有一句与 DeepSeek 那边
+一模一样的拦截：
+
+```ts
+if (containsImage && !model.input.includes('image')) {
+  throw new LlmError(`pi-ai model "${model.id}" does not support image input`, 'UNSUPPORTED_CONTENT')
+}
+```
+
+只打前两处的话，「粘贴图片」仅对 DeepSeek 路由成立 —— 你自己接的其它纯文本端点会在准入处
+被放行、然后死在这一句上。补上这处，**任何纯文本路由**都成立。
+
+**不能只是删掉抛错。** 删了之后图片会照常转成 pi-ai 的 image 块发给不收图的端点，
+换来一个供应商侧的报错，比原来那个清晰失败更糟。所以同样换成文字指针，
+并让 `containsImage` 从改写后的消息重新计算 —— 否则后面那句「图片输入需要附件服务」会误伤。
+
+声明了 `input: [text, image]` 的路由**原样放行**，图片照常送进去：这条补丁只对纯文本路由生效。
+
 ## 脚本怎么找到 DSH
 
 按 profile 的 `node_modules` 解析 `@deepseek-ai/dsh-host-apiproxy` 与
@@ -76,7 +97,7 @@ DSH_REPO=<DSH 源码仓库根> node install.mjs --route-only
 
 ## 手工重做
 
-自动打不上（上游改了那两处的写法）时照着上面两节改即可，改动本身很小：
+自动打不上（上游改了那几处的写法）时照着上面三节改即可，改动本身很小：
 一处是删掉一个 `if` 块，一处是把抛错换成返回文字指针。
 
 要注入的完整代码就在 `install.mjs` 里 —— `ADMISSION`、`POINTER_FN`、`POINTER_CALL`

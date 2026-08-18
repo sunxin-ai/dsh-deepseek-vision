@@ -2,10 +2,12 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+简体中文 | [English](README.en.md)
+
 **让 DeepSeek Harness 里的纯文本模型能看图。**
 
-- **补上 DeepSeek 的能力缺口。** DSH 的图像通路本已完整，缺的只是一条声明了多模态的路由。
-  官方多模态上线那天，本插件自动让位、可原样留着。
+- **任何纯文本模型都能读图。** 不只是 DeepSeek —— 你在 DSH 里自己接的那些 OpenAI 兼容端点
+  同样适用。官方多模态上线那天，本插件自动让位、可原样留着。
 - **把识图做成一个 tool。** 图片不进主模型上下文；它看到一行 `[图片 …]` 提示，需要时自己调
   `deepseek_vision`。不看就不产生任何成本，问什么由模型自己决定。
 - **附完整 eval，可自测。** 4 组夹具、23 处注入缺陷、四条通过线。换模型后重跑一遍就知道能不能用。
@@ -53,16 +55,19 @@ node install.mjs --restart          # 冷启动。HMR 是关的，刷新浏览�
 npm 装的和源码跑的都认。密钥也不经它的手，只写变量名 `apiKeyEnv: BAILIAN_API_KEY`。
 
 <details>
-<summary>第 3 步顺带改了 DSH 本体两处 —— 点开看改了什么、怎么还原</summary>
+<summary>第 3 步顺带改了 DSH 本体三处 —— 点开看改了什么、怎么还原</summary>
 
 「在对话框里粘贴图片」这件事插件自己做不到：拦截在 `api-proxy` 的消息准入里，
-而 `resolveModelInfo` 直接返回适配器自述、没有 waterfall，插件改不了 `llm-deepseek`
-硬编码的 `inputModalities: ['text']`。所以只能改本体，两处：
+而 `resolveModelInfo` 直接返回适配器自述、没有 waterfall，插件改不了适配器
+硬编码的 `inputModalities: ['text']`。所以只能改本体，三处：
 
 | 落点 | 改动 |
 |---|---|
 | `dsh-host-apiproxy` | 删掉纯文本路由的图片准入拒绝（一个 `if` 块） |
 | `dsh-llm-deepseek` | 序列化前把图片块换成一行 `[图片 … attachment=<id>]` 文字指针，不再抛错 |
+| `dsh-llm-pi-ai` | 同上 —— 这条覆盖你自己接的**所有** OpenAI 兼容纯文本端点 |
+
+前两处只让 DeepSeek 路由能粘图；第三处才让「**任何**纯文本模型都能读图」成立。
 
 改动前原文另存为 `<原文件名>.dsh-design-qa-orig`，一条命令还原：
 
@@ -90,7 +95,7 @@ node install.mjs --revert-patches
 4. node install.mjs --route-only
 5. node install.mjs --restart      # 不要用 pkill，那会杀掉你自己
 
-第 4 步会顺带改 DSH 本体两处（粘贴图片必须的），原文自动备份，
+第 4 步会顺带改 DSH 本体三处（粘贴图片必须的），原文自动备份，
 node install.mjs --revert-patches 可一键还原。把第 4 步的完整输出贴回给我。
 ```
 
@@ -226,7 +231,7 @@ DeepSeek 官方声明 `inputModalities` 含 `image` 的那天。
 只是想「随手看张图」——**用 modlens 更省事**，零配置、不改本体。
 
 本插件的定位是**设计稿保真度判定**：要求每条结论可回溯到证据，
-因此不惜多配一条路由、多改两处本体，换取图片走原生通路、判定可回放。
+因此不惜多配一条路由、多改三处本体，换取图片走原生通路、判定可回放。
 如果你不需要这个保证，这些成本就是纯负担。
 
 ---
@@ -259,7 +264,7 @@ node install.mjs [profile]         # 完整安装（不走 dsh plugin add 时用
 | `DSH_RESTART_CMD` | dsh 的完整启动命令 |
 
 完整安装做六件事，全部幂等、改动前自动备份：软链 `node_modules` → 软链 skill →
-写识图路由 → 写插件行 → 改本体 → 自检。
+写识图路由 → 写插件行 → 改本体三处 → 自检。
 
 ### 用 `dsh plugin add` 装过之后，`--route-only` 不能省
 
@@ -353,7 +358,7 @@ rm -rf ~/.agents/skills/design-qa               # 3. skill 软链（Windows 上�
 - **升级 DSH 会冲掉本体改动**（文件被新版覆盖）。表现是「粘图又被拒了」，重跑一次
   `node install.mjs --route-only` 即可。这也是有意的：新版 DSH 万一自己支持了图片，补丁不该悄悄留着。
   升级后即使备份文件还在，`--revert-patches` 也只会清掉那份过期备份、不会把新版文件覆盖回旧内容。
-- **按代码形态定位锚点，不按版本号。** 上游改写了那两处时，脚本会**报错并列出文件**，
+- **按代码形态定位锚点，不按版本号。** 上游改写了那三处时，脚本会**报错并列出文件**，
   而不是打半个补丁。两种形态都会被改到（源码运行的 `src/*.ts`、npm 安装的 `lib/index.js`）——
   无法可靠判断哪份是活的，宁可都改；源码仓库里因此会多出未跟踪的 `.dsh-design-qa-orig` 备份文件。
 - **`attachment=<id>` 形式只在进程内有效**：id → 路径的索引是内存态，重启后失效，需改用文件路径。

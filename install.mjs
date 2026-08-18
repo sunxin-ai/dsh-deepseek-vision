@@ -488,6 +488,30 @@ function writeRoute() {
  */
 const MARK = 'DSH-DESIGN-QA-PATCH'
 
+/**
+ * 改名前用过的标记与备份后缀。
+ *
+ * 认它们不是洁癖：旧版打过补丁的机器上，文件里留的是旧标记、备份叫旧名字。
+ * 新版若不认，`planPatch` 会以为没打过而去找锚点（早被替换掉了）→ 报「锚点找不到」，
+ * 而 `planRevert` 会找不到备份 → **那台机器的补丁再也还原不了**。
+ */
+const LEGACY_MARKS = ['DSH-DEEPSEEK-VISION-PATCH']
+const ORIG_SUFFIX = '.dsh-design-qa-orig'
+const LEGACY_ORIG_SUFFIXES = ['.dsh-vision-orig']
+
+/** 这份文件是不是本插件（含旧名版本）改过的。 */
+function isPatched(text) {
+  return text.includes(MARK) || LEGACY_MARKS.some((mark) => text.includes(mark))
+}
+
+/** 该文件的原文备份在哪；优先本名，其次旧名。都没有返回 undefined。 */
+function origPath(path) {
+  for (const suffix of [ORIG_SUFFIX, ...LEGACY_ORIG_SUFFIXES]) {
+    if (existsSync(`${path}${suffix}`)) return `${path}${suffix}`
+  }
+  return undefined
+}
+
 /** 还原命令，直接写进补丁注释里 —— 半年后读到这段代码的人不必去翻文档。 */
 const REVERT_HINT = `node ${join(HERE, 'install.mjs')} --revert-patches`
 
@@ -600,6 +624,56 @@ const POINTER_CALL = {
  * `ts` 是源码运行时真正被加载的那份（tsx 走 tsconfig paths → `src/`）；
  * `js` 是 npm 安装时被加载的那份（package.json 的 exports → `lib/index.js`）。
  */
+/**
+ * 落点三：`dsh-llm-pi-ai` —— 用户自己接的那些纯文本端点。
+ *
+ * `llm-pi-ai` 是 DSH 里配置任意 OpenAI 兼容端点的通用适配器，它有一句与 DeepSeek 那边
+ * 一模一样的拦截：路由没声明 image 就抛 `UNSUPPORTED_CONTENT`。
+ * 只打前两处的话，「粘贴图片」仅对 DeepSeek 路由成立；补上这处，**任何纯文本路由**都成立。
+ *
+ * 不能只是删掉抛错：删了之后图片会照常转成 pi-ai 的 image 块发给不收图的端点，
+ * 换来一个供应商侧的报错，比原来那个清晰失败更糟。所以同样换成文字指针。
+ */
+const PI_POINTER = {
+  id: 'pi-ai-image-pointer',
+  find: /^([ \t]*)const containsImage = options\.messages\.some\(\(?message\)? => contentHasImage\(message\.content\)\);?\n[ \t]*if \(containsImage && !model\.input\.includes\(["']image["']\)\)[\s\S]*?UNSUPPORTED_CONTENT["']\);?(\n[ \t]*\})?/m,
+  // 用拼接而不是模板字符串：注入的代码本身含反引号模板，套在模板里要满屏转义。
+  build: (ts, match) => {
+    const pad = match[1]
+    const pointer = '`[图片 ${block.attachment.mediaType} ${block.attachment.width}x${block.attachment.height}'
+      + ' attachment=${block.attachment.attachmentId}]（本模型看不到图片内容。'
+      + '需要知道图上是什么，把这个 attachment= 值传给 deepseek_vision 工具。）`'
+    return [
+      pad + '// ' + MARK + ' (pi-ai-image-pointer)',
+      pad + '// 原处：路由没声明 image 就抛 UNSUPPORTED_CONTENT。改成把图片块换成一行',
+      pad + '// attachment= 文字指针，模型据此调用 deepseek_vision 工具。',
+      pad + '// 与 dsh-host-apiproxy 的 image-admission 补丁成对，须同时存在或同时还原。',
+      pad + "const dshQaOptions = model.input.includes('image')",
+      pad + '  ? options',
+      pad + '  : { ...options, messages: options.messages.map((message) => ({ ...message, content: message.content.map((block) => block.type !== ' + "'image'",
+      pad + '    ? block',
+      pad + "    : ({ type: 'text'" + (ts ? ' as const' : '') + ', text: ' + pointer + ' })) })) }',
+      pad + 'const containsImage = dshQaOptions.messages.some((message) => contentHasImage(message.content))',
+    ].join('\n')
+  },
+}
+
+/**
+ * 落点三之二：把改写过的 options 真的送进去，否则上面那步白做。
+ *
+ * 必须整条三元表达式一起匹配，不能只匹配 `toPiContext(options, attachments)` ——
+ * 构建产物把 `toPiContext` 的**定义**也打进了同一个文件，那样会改到函数签名上去。
+ */
+const PI_CONTEXT = {
+  id: 'pi-ai-context',
+  // 参数列表用 `[^)]*` 兜住：rc.7 给 toPiContext 加了第三个参数 onReplayDegrade，
+  // 写死两参的正则在那版上直接失配。只认「第一个实参是 options」，其余原样带过去。
+  find: /const context = attachments === (undefined|void 0)\s*\?\s*toPiContext\(options([^)]*)\)\s*:\s*await toPiContext\(options([^)]*)\);?/,
+  build: (ts, match) => 'const context = attachments === ' + match[1]
+    + ' ? toPiContext(dshQaOptions' + match[2] + ')'
+    + ' : await toPiContext(dshQaOptions' + match[3] + ')' + (ts ? '' : ';'),
+}
+
 const PATCH_TARGETS = [
   {
     pkg: '@deepseek-ai/dsh-host-apiproxy',
@@ -612,6 +686,12 @@ const PATCH_TARGETS = [
     repoDir: 'packages/llm/llm-deepseek',
     forms: { ts: 'src/serialize.ts', js: 'lib/index.js' },
     edits: [POINTER_FN, POINTER_CALL],
+  },
+  {
+    pkg: '@deepseek-ai/dsh-llm-pi-ai',
+    repoDir: 'packages/llm/llm-pi-ai',
+    forms: { ts: 'src/adapter.ts', js: 'lib/index.js' },
+    edits: [PI_POINTER, PI_CONTEXT],
   },
 ]
 
@@ -678,7 +758,7 @@ function formFiles(root, forms) {
  */
 function planPatch(path, edits) {
   const before = readFileSync(path, 'utf8')
-  if (before.includes(MARK)) return { path, status: 'already' }
+  if (isPatched(before)) return { path, status: 'already' }
   const ts = path.endsWith('.ts')
   let text = before
   for (const edit of edits) {
@@ -697,12 +777,12 @@ function planPatch(path, edits) {
  * 且看起来是一次成功的还原。所以没有标记就只清掉这份过期备份。
  */
 function planRevert(path) {
-  const orig = `${path}.dsh-design-qa-orig`
   if (!existsSync(path)) return { path, status: 'gone' }
-  const patched = readFileSync(path, 'utf8').includes(MARK)
-  if (!existsSync(orig)) return { path, status: patched ? 'orig-missing' : 'clean' }
-  if (!patched) return { path, status: 'stale-orig' }
-  return { path, status: 'revert', before: readFileSync(path, 'utf8'), after: readFileSync(orig, 'utf8') }
+  const patched = isPatched(readFileSync(path, 'utf8'))
+  const orig = origPath(path)
+  if (orig === undefined) return { path, status: patched ? 'orig-missing' : 'clean' }
+  if (!patched) return { path, status: 'stale-orig', orig }
+  return { path, status: 'revert', orig, before: readFileSync(path, 'utf8'), after: readFileSync(orig, 'utf8') }
 }
 
 /** 每种结果怎么说。`ok:false` 的会让整轮不写盘。 */
@@ -720,7 +800,7 @@ const OUTCOMES = {
 /**
  * 打（或还原）本体补丁。**先把所有落点全算完，全部成功才写盘。**
  *
- * 两处改动是成对的：准入那处放行图片、序列化那处把图片换成文字指针。
+ * 三处改动是成对的：准入那处放行图片，两个适配器各自把图片换成文字指针。
  * 只打成前一处的话，图片进得了会话、却必定在序列化时抛 `UNSUPPORTED_CONTENT`，
  * 那条会话再也走不下去 —— 比一处都不打糟得多。所以宁可整轮不做。
  * @returns `{ lines, ok }` —— lines 逐条汇报，ok 为 false 时调用方应以非零码退出。
@@ -767,7 +847,7 @@ function patchBody(profile, { revert = false } = {}) {
 
   if (!ok) {
     lines.push('')
-    lines.push('以上有失败项，本轮**一个字节都没写** —— 两处改动必须成对，半打的状态会让会话卡死。')
+    lines.push('以上有失败项，本轮**一个字节都没写** —— 三处改动必须成套，半打的状态会让会话卡死。')
     return { lines, ok }
   }
 
@@ -775,17 +855,17 @@ function patchBody(profile, { revert = false } = {}) {
   const written = []
   try {
     for (const plan of plans) {
-      if (plan.dropOrig === true) { rmSync(`${plan.path}.dsh-design-qa-orig`, { force: true }); continue }
-      if (plan.status === 'patch') writeFileSync(`${plan.path}.dsh-design-qa-orig`, plan.before, 'utf8')
+      if (plan.dropOrig === true) { rmSync(plan.orig, { force: true }); continue }
+      if (plan.status === 'patch') writeFileSync(`${plan.path}${ORIG_SUFFIX}`, plan.before, 'utf8')
       writeFileSync(plan.path, plan.after, 'utf8')
-      if (plan.status === 'revert') rmSync(`${plan.path}.dsh-design-qa-orig`, { force: true })
+      if (plan.status === 'revert') rmSync(plan.orig, { force: true })
       written.push(plan)
     }
   } catch (error) {
     for (const plan of written.reverse()) {
       writeFileSync(plan.path, plan.before, 'utf8')
-      if (plan.status === 'patch') rmSync(`${plan.path}.dsh-design-qa-orig`, { force: true })
-      else writeFileSync(`${plan.path}.dsh-design-qa-orig`, plan.after, 'utf8')
+      if (plan.status === 'patch') rmSync(`${plan.path}${ORIG_SUFFIX}`, { force: true })
+      else writeFileSync(plan.orig, plan.after, 'utf8')
     }
     lines.push(`✗ 写盘失败，已回滚本轮所有改动：${error instanceof Error ? error.message : String(error)}`)
     return { lines, ok: false }
