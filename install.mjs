@@ -675,6 +675,31 @@ const PI_CONTEXT = {
     + ' : await toPiContext(dshQaOptions' + match[3] + ')' + (ts ? '' : ';'),
 }
 
+/**
+ * 退休判据：这个包**自己**是不是已经声明支持图片输入了。
+ *
+ * 补丁的存在前提是「本体拒收图片」。上游哪天自己支持了，补丁就从「修复」变成「破坏」——
+ * 它会把模型本来看得见的图换成一行文字指针，而 `deepseek_vision` 此时又正好会自我拒绝
+ * （见 `src/index.ts` 的调用方能力判断），两头都不接，图就废了。
+ *
+ * 判据与运行时那处保持一致：`inputModalities` 的数组字面量里明确含 `image` 才算支持。
+ * **只认字面量，不求值** —— `llm-pi-ai` 的 `[...model.input]` 取决于用户配置，
+ * 那是「用户接了个能看图的端点」，不是「上游自己支持了」，不该被当成退休信号。
+ * @returns 命中返回 `{ rel, text }` 供文案引用；未命中返回 undefined。
+ */
+const MODALITY_DECL = /inputModalities\s*:\s*\[([^\]]*)\]/g
+
+function declaresImageInput(root, probes) {
+  for (const rel of probes) {
+    const path = join(root, rel)
+    if (!existsSync(path)) continue
+    for (const match of readFileSync(path, 'utf8').matchAll(MODALITY_DECL)) {
+      if (/["\']image["\']/.test(match[1])) return { rel, text: match[0] }
+    }
+  }
+  return undefined
+}
+
 const PATCH_TARGETS = [
   {
     pkg: '@deepseek-ai/dsh-host-apiproxy',
@@ -686,6 +711,10 @@ const PATCH_TARGETS = [
     pkg: '@deepseek-ai/dsh-llm-deepseek',
     repoDir: 'packages/llm/llm-deepseek',
     forms: { ts: 'src/serialize.ts', js: 'lib/index.js' },
+    // 能力声明写在 adapter 里，补丁打在 serialize 里 —— 探测路径与 forms 不是同一组文件。
+    // 另外两处不设退休判据：`api-proxy` 的门禁对所有路由通用，只要还存在纯文本路由就需要；
+    // `llm-pi-ai` 那处本就按 `model.input` 动态放行，能看图的端点自然走原生通路。
+    nativeVision: ['src/adapter.ts', 'lib/index.js'],
     edits: [POINTER_FN, POINTER_CALL],
   },
   {
@@ -826,6 +855,22 @@ function patchBody(profile, { revert = false, dryRun = false } = {}) {
     }
     let seen = 0
     for (const root of roots) {
+      // 上游自己支持图片了就别再打 —— 打上去反而会把它能看见的图换成文字指针。
+      // **逐份判断**：机器上可能有多份 DSH，新的那份退休了不代表旧的那份也该跳过。
+      // 还原路径不看这个判据：已经打过的补丁，无论上游变成什么样都必须能撤掉。
+      const retired = revert || target.nativeVision === undefined
+        ? undefined
+        : declaresImageInput(root, target.nativeVision)
+      if (retired !== undefined) {
+        // 计入 seen：这一份是「查过且判定不需要」，不是「没找到」，不该触发下面的硬失败。
+        seen += 1
+        lines.push(`· ${target.pkg} @ ${root}`)
+        lines.push(`  已自己声明支持图片输入，这处补丁不再需要，跳过。`)
+        lines.push(`  依据 ${retired.rel}：${retired.text}`)
+        lines.push('  若之前打过，先 node install.mjs --revert-patches 撤掉它。')
+        continue
+      }
+
       // 打到哪份 DSH 上必须显式打印：万一机器上有多份，用户要能一眼看出改错了没有。
       lines.push(`${revert ? '还原' : '改'} ${target.pkg} @ ${root}`)
       const files = formFiles(root, target.forms)

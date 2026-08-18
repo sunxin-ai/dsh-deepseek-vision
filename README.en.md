@@ -279,9 +279,22 @@ the console before you rely on it.
 
 The day DeepSeek officially declares `image` in `inputModalities`.
 
-Nothing needs changing then: `deepseek_vision` will find that the caller can see images itself,
-**refuse and step aside**, and images will flow into the model's context through the native path.
-The patches and the plugin can be left exactly as they are, or removed.
+Nothing needs changing then — stepping aside happens at **two** layers:
+
+- **At runtime**: `deepseek_vision` finds that the caller can see images itself, **refuses**,
+  and tells the model to look directly. Images flow through the native path; relaying them
+  through another model would only lose information.
+- **At install time**: `install.mjs` reads the `inputModalities` that `llm-deepseek` declares.
+  If it already contains `image`, the installer **refuses to apply that patch** and explains why —
+  once upstream supports images, that patch would replace an image the model can actually see
+  with a one-line text pointer, turning a fix into a regression. The decision is made per DSH
+  installation found, so multiple installs on one machine don't affect each other.
+
+The other two sites have no retirement check: the `api-proxy` gate is generic across routes and
+stays necessary as long as any text-only route exists, and the `llm-pi-ai` site already admits
+images dynamically based on `model.input`, so an image-capable endpoint takes the native path.
+
+The plugin can be left exactly as it is, or removed.
 
 ## When not to use this
 
