@@ -11,6 +11,7 @@
  *                                         （从 GitHub 用 `dsh plugin add` 装时用这个）
  *   node install.mjs --no-patches         不给 DSH 本体打补丁（粘贴图片将仍被拒绝）
  *   node install.mjs --revert-patches     还原本体补丁并退出
+ *   node install.mjs --check-patches      只检查三处锚点认不认得出当前 DSH，不写盘（CI 用）
  *   node install.mjs --restart            只重启，可从 dsh 自己的进程内部调用
  *                                         （加 --force 可无视重启前体检的拦截）
  *
@@ -805,7 +806,7 @@ const OUTCOMES = {
  * 那条会话再也走不下去 —— 比一处都不打糟得多。所以宁可整轮不做。
  * @returns `{ lines, ok }` —— lines 逐条汇报，ok 为 false 时调用方应以非零码退出。
  */
-function patchBody(profile, { revert = false } = {}) {
+function patchBody(profile, { revert = false, dryRun = false } = {}) {
   const lines = []
   const plans = []
   let ok = true
@@ -851,6 +852,21 @@ function patchBody(profile, { revert = false } = {}) {
     return { lines, ok }
   }
 
+  // 干跑到此为止：锚点都算得出来就是好的，不写盘。CI 用它盯上游漂移。
+  //
+  // 「已打过」要单独计数并在全是它时判失败：那种情况下**一个锚点都没被检验**，
+  // 却会报成功 —— 一个能静默通过的 CI 比没有 CI 更糟。
+  if (dryRun) {
+    lines.push('')
+    if (plans.length === 0) {
+      lines.push('✗ 所有落点都是「已打过」，**没有任何锚点被真正检验**。')
+      lines.push('  请对一份未打过补丁的 DSH 跑本命令（CI 里应每次装一份全新的）。')
+      return { lines, ok: false }
+    }
+    lines.push(`${plans.length} 处落点算得出来，未写盘。`)
+    return { lines, ok }
+  }
+
   // 第二阶段：写盘。写到一半失败就把已经写过的退回去，绝不留下半打状态。
   const written = []
   try {
@@ -882,6 +898,20 @@ async function main() {
   if (argv.includes('--restart')) return restart()
 
   const profile = argv.find((arg) => !arg.startsWith('--')) ?? 'web'
+
+  if (argv.includes('--check-patches')) {
+    // 只算不写：三处锚点还认不认得出当前这份 DSH。
+    // 上游改写了那几处的写法时，这里先红，而不是等用户装完粘图才发现。
+    console.log(bold('检查本体补丁的锚点（不写盘）'))
+    const { lines, ok } = patchBody(profile, { dryRun: true })
+    for (const line of lines) console.log(`     ${line}`)
+    if (!ok) {
+      warn('\n检查未通过。若是锚点对不上，说明上游改写了那几处的写法，需按 patches/README.md 重做规则。')
+      return 1
+    }
+    console.log('\n锚点都认得出来。')
+    return 0
+  }
 
   if (argv.includes('--revert-patches')) {
     console.log(bold('还原 DSH 本体补丁'))

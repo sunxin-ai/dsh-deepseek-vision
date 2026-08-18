@@ -1,0 +1,80 @@
+# 这个项目最脆弱的地方是三处本体补丁的锚点：它们按代码形态定位，不按版本号。
+# 上游改写那几处的写法，补丁就失配 —— 已经发生过一次（rc.7 给 toPiContext 加了第三个参数）。
+# 那次是人肉发现的，这个 workflow 就是为了下次由 CI 先发现。
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # 每天查一次上游。漂移不是由本仓库的提交触发的，所以光靠 push 盯不住。
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: 构建与打包
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: 语法检查
+        run: |
+          node --check install.mjs
+          node --check lib/index.js
+
+      - name: 从源码重建，确认与入库的构建产物一致
+        run: |
+          npx --yes tsdown@0.15.12 --entry src/index.ts --format esm --out-dir /tmp/rebuilt --dts false --no-config
+          if ! diff -q /tmp/rebuilt/index.js lib/index.js; then
+            echo "::error::lib/index.js 与 src/index.ts 重建结果不一致 —— 改完源码忘了重建？"
+            diff -u lib/index.js /tmp/rebuilt/index.js | head -40
+            exit 1
+          fi
+
+      - name: 包内容自洽
+        run: |
+          npm pack --dry-run
+          node -e "
+            const p = require('./package.json')
+            const fs = require('node:fs')
+            const entry = p.exports['.'].replace('./','')
+            if (!fs.existsSync(entry)) { console.error('::error::exports 指向的 ' + entry + ' 不存在'); process.exit(1) }
+            if (p.main.replace('./','') !== entry) { console.error('::error::main 与 exports 不一致'); process.exit(1) }
+            console.log('入口自洽:', entry)
+          "
+
+  anchors:
+    name: 补丁锚点对最新 dsh 还认得出吗
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: 装一份全新的 dsh
+        run: |
+          mkdir -p /tmp/dshci && cd /tmp/dshci
+          echo '{"name":"dshci","private":true}' > package.json
+          npm i @deepseek-ai/dsh --no-audit --no-fund
+          node -e "console.log('dsh 版本:', require('/tmp/dshci/node_modules/@deepseek-ai/dsh/package.json').version)"
+
+      - name: 干跑三处锚点（不写盘）
+        run: |
+          # DSH_HOME 指向一个不存在的目录：这一步不该依赖任何已安装的 profile，
+          # 定位完全靠 PATH 上那个全新的 dsh。全新意味着补丁没打过，锚点会被真正检验 ——
+          # 全是「已打过」时命令自己会判失败，避免出现什么都没检验的假绿灯。
+          PATH="/tmp/dshci/node_modules/.bin:$PATH" DSH_HOME=/tmp/dshci/no-such-home \
+            node install.mjs --check-patches
+
+      - name: 锚点失配时说清楚该干什么
+        if: failure()
+        run: |
+          echo "::error::三处本体补丁的锚点对不上最新的 @deepseek-ai/dsh。"
+          echo "上游多半改写了那几处的写法。按 patches/README.md 重做 install.mjs 里的"
+          echo "ADMISSION / POINTER_FN / POINTER_CALL / PI_POINTER / PI_CONTEXT 规则。"
