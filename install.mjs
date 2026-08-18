@@ -125,14 +125,39 @@ async function processCwd(pid) {
   return undefined
 }
 
+/**
+ * dsh 的几种启动形态。npm 安装最常见的是**通过 bin 垫片**起（`node node_modules/.bin/dsh web`），
+ * 全局安装则是垫片软链到入口、由 shebang 交给 node（命令行里出现 `dsh/lib/bin.js`）。
+ */
+const DSH_PATTERNS = ['.bin/dsh', 'dsh/lib/bin.js', 'apps/cli/src/bin.ts', 'bin.js web', 'bin.ts web']
+
+/**
+ * 这条命令行是不是「真的在跑一个程序」，而不是某个恰好提到了匹配串的 shell。
+ *
+ * 光按子串匹配会误伤：调用方自己的 shell 命令里若出现 `dsh/lib/bin.js`
+ * （比如它正打算 grep 一下 dsh 进程），那条 shell 就会被当成 dsh 本身。
+ * 真正的 dsh 一定由 node 拉起，或者是 dsh 垫片自己。
+ */
+function looksLikeLaunch(command) {
+  const first = command.trim().split(/\s+/)[0]?.replace(/^["']|["']$/g, '') ?? ''
+  const base = basename(first).replace(/\.(exe|cmd)$/i, '')
+  return base === 'node' || base === 'dsh'
+}
+
 /** 找到正在运行的 dsh。内置候选覆盖源码运行与 npm 安装两种形态。 */
 async function findDsh() {
-  const candidates = [process.env.DSH_PROCESS_PATTERN, 'dsh/lib/bin.js', 'apps/cli/src/bin.ts', 'bin.js web', 'bin.ts web']
-    .filter((pattern) => typeof pattern === 'string' && pattern.length > 0)
+  const explicit = process.env.DSH_PROCESS_PATTERN
   const processes = await listProcesses()
   const self = process.pid
-  for (const pattern of candidates) {
-    const hit = processes.find((entry) => entry.pid !== self && entry.command.includes(pattern))
+  // 显式给了匹配串就完全照办 —— 用户比启发式更清楚自己怎么起的 dsh。
+  if (typeof explicit === 'string' && explicit.length > 0) {
+    const hit = processes.find((entry) => entry.pid !== self && entry.command.includes(explicit))
+    return hit === undefined ? undefined : { ...hit, pattern: explicit }
+  }
+  for (const pattern of DSH_PATTERNS) {
+    const hit = processes.find((entry) => entry.pid !== self
+      && entry.command.includes(pattern)
+      && looksLikeLaunch(entry.command))
     if (hit !== undefined) return { ...hit, pattern }
   }
   return undefined
