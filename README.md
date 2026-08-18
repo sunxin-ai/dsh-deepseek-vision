@@ -1,6 +1,7 @@
 # dsh-design-qa
 
 [![npm](https://img.shields.io/npm/v/dsh-design-qa)](https://www.npmjs.com/package/dsh-design-qa)
+[![CI](https://github.com/sunxin-ai/dsh-design-qa/actions/workflows/ci.yml/badge.svg)](https://github.com/sunxin-ai/dsh-design-qa/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 简体中文 | [English](README.en.md)
