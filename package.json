@@ -1,14 +1,20 @@
 {
   "name": "dsh-design-qa",
   "version": "0.1.0",
-  "description": "给纯文本 DSH 模型接上视觉：补上 DSH 缺的那条多模态路由，引擎用 Qwen，官方多模态上线即自动让位。",
+  "description": "让 DeepSeek Harness 里任何纯文本模型都能读图。识图是按需调用的 tool —— 图片不进主模型上下文，不看就不花钱；附 23 处缺陷的评测集，换模型可自测。",
   "type": "module",
   "license": "MIT",
   "keywords": [
     "deepseek-harness",
     "dsh-plugin",
+    "dsh",
     "vision",
-    "design-qa"
+    "design-qa",
+    "visual-regression",
+    "design-review",
+    "multimodal",
+    "qwen-vl",
+    "openai-compatible"
   ],
   "exports": {
     ".": "./lib/index.js"

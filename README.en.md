@@ -1,5 +1,6 @@
 # dsh-design-qa
 
+[![npm](https://img.shields.io/npm/v/dsh-design-qa)](https://www.npmjs.com/package/dsh-design-qa)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 [简体中文](README.md) | English
@@ -39,8 +40,11 @@ is effectively free.
 ### 2. Install the plugin
 
 ```sh
-dsh plugin --profile web add github:sunxin-ai/dsh-design-qa
+dsh plugin --profile web add dsh-design-qa
 ```
+
+> You can also install straight from GitHub (that gets you the tip of `main`, which is not
+> necessarily what's on npm): `dsh plugin --profile web add github:sunxin-ai/dsh-design-qa`
 
 ### 3. Configure and cold-restart
 
@@ -99,7 +103,7 @@ If you'd rather not type, hand DSH this block whole — it has bash and will run
 ```text
 Install dsh-design-qa. Five steps, exactly as written, don't improvise:
 
-1. dsh plugin --profile web add github:sunxin-ai/dsh-design-qa
+1. dsh plugin --profile web add dsh-design-qa
 2. cd "${DSH_HOME:-$HOME/.dsh}/profiles/web/node_modules/dsh-design-qa"
 3. export BAILIAN_API_KEY=<your key>      # use export; the next command needs it too
 4. node install.mjs --route-only

@@ -1,5 +1,6 @@
 # dsh-design-qa
 
+[![npm](https://img.shields.io/npm/v/dsh-design-qa)](https://www.npmjs.com/package/dsh-design-qa)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 简体中文 | [English](README.en.md)
@@ -33,8 +34,11 @@ macOS / Linux / Windows 通用，安装脚本是一份 Node 实现。
 ### 2. 装插件
 
 ```sh
-dsh plugin --profile web add github:sunxin-ai/dsh-design-qa
+dsh plugin --profile web add dsh-design-qa
 ```
+
+> 也可以直接从 GitHub 装（拿到的是 main 上最新的，未必等于 npm 上那版）：
+> `dsh plugin --profile web add github:sunxin-ai/dsh-design-qa`
 
 ### 3. 补配套并重启
 
@@ -89,7 +93,7 @@ node install.mjs --revert-patches
 ```text
 装 dsh-design-qa，按这五步，不要自己发挥：
 
-1. dsh plugin --profile web add github:sunxin-ai/dsh-design-qa
+1. dsh plugin --profile web add dsh-design-qa
 2. cd "${DSH_HOME:-$HOME/.dsh}/profiles/web/node_modules/dsh-design-qa"
 3. export BAILIAN_API_KEY=<你的 key>      # 用 export，下一条命令也要用到它
 4. node install.mjs --route-only
