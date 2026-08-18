@@ -1,4 +1,4 @@
-dsh-deepseek-vision
+dsh-design-qa
 Copyright (c) 2026 sunxin-ai
 
 This plugin patches DeepSeek Harness
@@ -6,4 +6,4 @@ This plugin patches DeepSeek Harness
 Copyright (c) 2026 DeepSeek. The patched files stay under that license;
 its full text is identical to the MIT License in ./LICENSE.
 
-patches/README.md documents both edits and how to revert them.
+patches/README.md documents all three edits and how to revert them.

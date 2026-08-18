@@ -1,0 +1,4 @@
+# 评测夹具与原始模型输出是数据，不是项目代码。
+# 不排除的话它们的体积压过源码，GitHub 会把整个仓库判成 HTML。
+eval/evalset/** linguist-documentation
+eval/runs/**    linguist-documentation

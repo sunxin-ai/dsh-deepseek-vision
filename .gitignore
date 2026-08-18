@@ -3,7 +3,9 @@
 /eval/node_modules
 *.tgz
 
-# 本体补丁的原文备份（只应留在 DSH 那边，不该出现在本仓库）
+# 本体补丁的原文备份（只应留在 DSH 那边，不该出现在本仓库）。
+# 两个后缀都挡：install.mjs 写 ORIG_SUFFIX，还原时另认 LEGACY_ORIG_SUFFIXES。
+*.dsh-design-qa-orig
 *.dsh-vision-orig
 
 # 环境文件可能含密钥 —— 绝不入库。带后缀的一并排除（.env.bailian 这类）
