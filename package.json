@@ -1,5 +1,5 @@
 {
-  "name": "dsh-deepseek-vision",
+  "name": "dsh-design-qa",
   "version": "0.1.0",
   "description": "给纯文本 DSH 模型接上视觉：补上 DSH 缺的那条多模态路由，引擎用 Qwen，官方多模态上线即自动让位。",
   "type": "module",
@@ -42,12 +42,12 @@
   "author": "sunxin-ai",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sunxin-ai/dsh-deepseek-vision.git"
+    "url": "git+https://github.com/sunxin-ai/dsh-design-qa.git"
   },
   "bugs": {
-    "url": "https://github.com/sunxin-ai/dsh-deepseek-vision/issues"
+    "url": "https://github.com/sunxin-ai/dsh-design-qa/issues"
   },
-  "homepage": "https://github.com/sunxin-ai/dsh-deepseek-vision#readme",
+  "homepage": "https://github.com/sunxin-ai/dsh-design-qa#readme",
   "main": "./lib/index.js",
   "dsh": {
     "bundle": {

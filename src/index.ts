@@ -1,5 +1,5 @@
 /**
- * dsh-deepseek-vision —— 给纯文本模型接上「义眼」，用于设计稿与前端实现的保真度判定。
+ * dsh-design-qa —— 给纯文本模型接上「义眼」，用于设计稿与前端实现的保真度判定。
  *
  * **主模型始终是纯文本的，图片从不进入它的上下文。**
  *
@@ -32,13 +32,13 @@
  * | 「哪个更大」            | 0/36 | 1/2 —— 留白类被系统性答反 3/3 |
  * | **「各自是多少」**      | 0/12 | **2/2** |
  *
- * 三条伪影的细节见 `skills/deepseek-vision/SKILL.md`。
+ * 三条伪影的细节见 `skills/design-qa/SKILL.md`。
  *
  * 读数的**方向**可信，**量级**不可信：实测字重真值 800/500 读作 800/700，
  * 间距 80/25 读作 72/38 —— B 侧被拉向 A 侧。因此本插件只判定「是否存在差异」，
  * 绝不把读数当测量值上报；实现侧的精确值应由调用方用 `getComputedStyle` 或像素测量取得。
  *
- * @module dsh-deepseek-vision
+ * @module dsh-design-qa
  */
 
 import { createHash } from 'node:crypto'
@@ -55,7 +55,7 @@ import type { ContentBlock, GenerateOptions } from '@deepseek-ai/dsh-llm'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { GenericCallView } from '@deepseek-ai/dsh-tools'
 
-export const name = 'dsh-deepseek-vision'
+export const name = 'dsh-design-qa'
 
 /** `tools` 注册工具，`llm` 发起识图调用，`attachments` 提供图片的持久化通路。 */
 export const inject = ['tools', 'llm', 'attachments'] as const
@@ -107,7 +107,7 @@ async function assertVisionRoute(ctx: Context, config: Config, signal?: AbortSig
   const info = await ctx.llm.resolveModelInfo(config.provider, config.model, signal)
   if (info.inputModalities?.includes('image') !== true) {
     throw new Error(
-      `dsh-deepseek-vision: 路由 "${config.provider}/${config.model}" 未声明 image 输入。`
+      `dsh-design-qa: 路由 "${config.provider}/${config.model}" 未声明 image 输入。`
       + ` 在 $DSH_HOME/settings.yaml 的 llm-pi-ai.providers 下补上该路由，并在其 models 条目里写 input: [text, image]；`
       + ' 未声明 image 的路由会被图像通路的门禁拒绝，这与 read_image 的行为一致。',
     )
@@ -125,13 +125,13 @@ async function commitImage(ctx: Context, path: string) {
   const mediaType = IMAGE_MEDIA_TYPES[extname(path).toLowerCase()]
   if (mediaType === undefined) {
     throw new Error(
-      `dsh-deepseek-vision: "${path}" 不是 PNG/JPEG/WebP/GIF。`
+      `dsh-design-qa: "${path}" 不是 PNG/JPEG/WebP/GIF。`
       + ' image_path 接受三种形式：文件绝对路径、http(s) 图片地址、'
       + '或上下文里 `[图片 …]` 提示中的附件 id（带不带 attachment= 前缀都可以）。',
     )
   }
   if (!ctx.attachments.imageLimits.mediaTypes.includes(mediaType)) {
-    throw new Error(`dsh-deepseek-vision: 本部署不接受 ${mediaType} 图片`)
+    throw new Error(`dsh-design-qa: 本部署不接受 ${mediaType} 图片`)
   }
   let data
   try {
@@ -139,7 +139,7 @@ async function commitImage(ctx: Context, path: string) {
   } catch (error: unknown) {
     // 裸 ENOENT 不说明该怎么办，而其它失败路径都给了三种入参形式的提示。
     throw new Error(
-      `dsh-deepseek-vision: 读不到 "${path}"：${error instanceof Error ? error.message : String(error)}。`
+      `dsh-design-qa: 读不到 "${path}"：${error instanceof Error ? error.message : String(error)}。`
       + ' image_path 接受三种形式：文件绝对路径、http(s) 图片地址、'
       + '或上下文 `[图片 …]` 提示中的附件 id（带不带 attachment= 前缀都可以）。',
       { cause: error },
@@ -183,11 +183,11 @@ async function askVision(
   // 不看 finish 就会把「调用失败」读成「模型没说话」。
   const finish = assembler.finish
   if (finish.kind === 'error' || finish.kind === 'aborted') {
-    throw new Error(`dsh-deepseek-vision: 识图调用失败（${finish.failure.code}）：${finish.failure.message}`)
+    throw new Error(`dsh-design-qa: 识图调用失败（${finish.failure.code}）：${finish.failure.message}`)
   }
   if (finish.kind === 'max-tokens') {
     throw new Error(
-      `dsh-deepseek-vision: 识图输出被 maxTokens=${config.maxTokens} 截断。`
+      `dsh-design-qa: 识图输出被 maxTokens=${config.maxTokens} 截断。`
       + '请调高插件配置的 maxTokens，或把问题问得更具体 —— 具体问题的回答本来也更短、更可靠。',
     )
   }
@@ -203,7 +203,7 @@ async function askVision(
  *
  * 附件 id 形如 `sha256:<hex>`，冒号在 APFS 上合法但在别处不是，统一替换。
  */
-const SPILL_DIR = join(tmpdir(), 'dsh-deepseek-vision')
+const SPILL_DIR = join(tmpdir(), 'dsh-design-qa')
 
 /** 附件 id → 落盘路径，由 {@link spillImages} 填充，{@link resolveImageArg} 查询。 */
 const spilled = new Map<string, string>()
@@ -293,7 +293,7 @@ function getRemote(rawUrl: string, hops = 0): Promise<RemoteResponse> {
     const secure = target.protocol === 'https:'
     const port = Number(target.port) || (secure ? 443 : 80)
     const proxy = proxyFor(target)
-    const headers = { host: target.host, accept: 'image/*,*/*;q=0.8', 'user-agent': 'dsh-deepseek-vision' }
+    const headers = { host: target.host, accept: 'image/*,*/*;q=0.8', 'user-agent': 'dsh-design-qa' }
     const path = `${target.pathname}${target.search}`
 
     // 挂钟兜底。socket 级的 setTimeout 只对「连上之后不动」有效，
@@ -350,7 +350,7 @@ function getRemote(rawUrl: string, hops = 0): Promise<RemoteResponse> {
     const onError = (error: unknown): void => {
       const code = (error as NodeJS.ErrnoException)?.code ?? (error as Error)?.message ?? '未知错误'
       fail(new Error(
-        `dsh-deepseek-vision: 连不上 ${target.origin}（${code}）`
+        `dsh-design-qa: 连不上 ${target.origin}（${code}）`
         + (proxy === undefined
           ? '。'
           // 走代理时拿不到真正的 DNS 错误：代理先回 200 建好隧道、再把隧道 reset，
@@ -392,7 +392,7 @@ function getRemote(rawUrl: string, hops = 0): Promise<RemoteResponse> {
       open.push(socket)
       if (proxyResponse.statusCode !== 200) {
         socket.destroy()
-        fail(new Error(`dsh-deepseek-vision: 代理 ${proxy.origin} 拒绝了 CONNECT（HTTP ${proxyResponse.statusCode}）。请检查代理设置或改用本地文件路径。`))
+        fail(new Error(`dsh-design-qa: 代理 ${proxy.origin} 拒绝了 CONNECT（HTTP ${proxyResponse.statusCode}）。请检查代理设置或改用本地文件路径。`))
         return
       }
       // ALPNProtocols 不能省。走 https.Agent 的常规请求会自带它，而这里是在隧道的
@@ -432,7 +432,7 @@ async function fetchRemoteImage(url: string): Promise<string> {
   const response = await getRemote(url).catch((error: unknown) => {
     if (error instanceof TooLargeError) {
       throw new Error(
-        `dsh-deepseek-vision: 图片 ${mb(error.bytes)}，超过上限 ${mb(MAX_REMOTE_BYTES)}。`
+        `dsh-design-qa: 图片 ${mb(error.bytes)}，超过上限 ${mb(MAX_REMOTE_BYTES)}。`
         + ' 识图按像素计费，超大图既贵又会被降采样。请先裁剪或压缩到上限以内再传，'
         + '或只截取你真正要看的那一块 —— 局部图的判定精度本来也更高。',
       )
@@ -441,7 +441,7 @@ async function fetchRemoteImage(url: string): Promise<string> {
   })
   if (response.status < 200 || response.status >= 300) {
     throw new Error(
-      `dsh-deepseek-vision: 下载图片失败 HTTP ${response.status}。`
+      `dsh-design-qa: 下载图片失败 HTTP ${response.status}。`
       + ' 若该图需要登录态（飞书、Notion 等私有文档），请先用对应的 skill 或带凭据的命令把它下载到本地，再把本地路径传给本工具。',
     )
   }
@@ -453,7 +453,7 @@ async function fetchRemoteImage(url: string): Promise<string> {
     : undefined
   if (mediaType === undefined) {
     throw new Error(
-      `dsh-deepseek-vision: ${url} 返回的是 ${contentType || '未知类型'}，`
+      `dsh-design-qa: ${url} 返回的是 ${contentType || '未知类型'}，`
       + '只支持 PNG / JPEG / WebP / GIF。'
       + (contentType.includes('svg') ? ' SVG 等矢量格式请先转成位图再传。' : ' 请确认该地址直接指向图片文件，而不是包含图片的网页。'),
     )
@@ -486,7 +486,7 @@ async function resolveImageArg(raw: string): Promise<string> {
   // 长得像附件 id 却查不到 → 按附件报错；否则当作文件路径继续往下走。
   if (!id.includes('/') && !id.includes('\\') && /^[a-z0-9]+:/i.test(id)) {
     throw new Error(
-      `dsh-deepseek-vision: 附件 ${id} 没有落盘记录。`
+      `dsh-design-qa: 附件 ${id} 没有落盘记录。`
       + ' 该形式只在本次进程内、图片出现过的会话里有效；否则请给文件路径或 http(s) 地址。',
     )
   }
@@ -608,7 +608,7 @@ export function apply(ctx: Context, config: Config): void {
       // 绕一圈交给另一个模型转述反而丢信息。这条同时保证官方多模态上线后本工具自动让位。
       if (await routeAcceptsImages(ctx, exec.agent, exec.signal)) {
         throw new Error(
-          'dsh-deepseek-vision: 当前模型本身就能看图，请直接看，不要用 deepseek_vision 转一手。'
+          'dsh-design-qa: 当前模型本身就能看图，请直接看，不要用 deepseek_vision 转一手。'
           + ' 本工具只服务于看不到图片内容的纯文本模型。',
         )
       }
@@ -621,7 +621,7 @@ export function apply(ctx: Context, config: Config): void {
         args.question,
         exec.signal,
       )
-      if (answer.trim().length === 0) throw new Error('dsh-deepseek-vision: 识图返回空内容')
+      if (answer.trim().length === 0) throw new Error('dsh-design-qa: 识图返回空内容')
       return { image_path: resolved, question: args.question, answer: answer.trim() }
     },
     presentCall(args): GenericCallView {

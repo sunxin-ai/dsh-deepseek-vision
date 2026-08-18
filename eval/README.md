@@ -70,7 +70,7 @@ node pair.mjs --left <design裁剪> --right <impl裁剪> --out pairs/<名字>.pn
 注意第一行的低幻觉率**有一部分是「懒」换来的** —— 大量回答「一致」，说得少自然错得少。
 所以召回和幻觉必须一起看，单看任一项都会得出错误结论。
 
-这套纪律固化在 `../skills/deepseek-vision/SKILL.md` 里，不写死在工具中 ——
+这套纪律固化在 `../skills/design-qa/SKILL.md` 里，不写死在工具中 ——
 提问由模型按 skill 组织，实测比写死的模板更准。
 
 ## 读数的可信边界

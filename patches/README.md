@@ -69,8 +69,8 @@ DSH_REPO=<DSH 源码仓库根> node install.mjs --route-only
 改成按代码形态定位锚点 —— 以 `if (hasImage) {` 的缩进为界、以那句
 `Reject core image content` 注释为界 —— 同一条正则同时命中 TS 源码与构建产物。
 
-- **幂等**：改过的文件里留有 `DSH-DEEPSEEK-VISION-PATCH` 标记，见到就跳过。
-- **备份**：改动前原文另存为 `<原文件名>.dsh-vision-orig`，`--revert-patches` 按字节拷回。
+- **幂等**：改过的文件里留有 `DSH-DESIGN-QA-PATCH` 标记，见到就跳过。
+- **备份**：改动前原文另存为 `<原文件名>.dsh-design-qa-orig`，`--revert-patches` 按字节拷回。
 - **失败要响**：锚点找不到就打印 `✗` 并以非零码退出，绝不静默跳过 ——
   「装完粘图被拒、脚本却显示一切正常」是最难查的一类失败。
 
@@ -83,8 +83,8 @@ DSH_REPO=<DSH 源码仓库根> node install.mjs --route-only
 三个常量各自带着 TS 与构建产物两种形态的原文，直接抄。
 
 改完想让脚本认账（后续能幂等跳过、能 `--revert-patches`），在改动处留一行含
-`DSH-DEEPSEEK-VISION-PATCH` 的注释，并把改动前的原文另存为
-`<原文件名>.dsh-vision-orig`。
+`DSH-DESIGN-QA-PATCH` 的注释，并把改动前的原文另存为
+`<原文件名>.dsh-design-qa-orig`。
 
 ## 升级 DSH 之后
 

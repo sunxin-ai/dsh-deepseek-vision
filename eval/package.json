@@ -1,5 +1,5 @@
 {
-  "name": "dsh-deepseek-vision-eval",
+  "name": "dsh-design-qa-eval",
   "private": true,
   "type": "module",
   "description": "视觉保真判定基准。只在 GitHub 仓库里，不随插件包分发。",

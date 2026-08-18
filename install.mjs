@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * dsh-deepseek-vision 的安装与重启，一份实现覆盖 macOS / Linux / Windows。
+ * dsh-design-qa 的安装与重启，一份实现覆盖 macOS / Linux / Windows。
  *
  * 为什么用 Node 而不是 shell：DSH 自身要求 `node ^22.19 || >=24`，所以 Node 一定在；
  * 而 bash 在 Windows 上不一定有，`pgrep` / `pkill` / `lsof` / `setsid` 更是一个都没有。
@@ -23,7 +23,7 @@
  * 打不上就硬报错并以非零码退出：装完粘贴图片被拒、脚本却显示成功，是最难查的一类失败。
  *
  * 平台差异只剩「列出进程」一处需要分支，其余用 Node 原生 API 抹平。
- * @module dsh-deepseek-vision/install
+ * @module dsh-design-qa/install
  */
 import { execFile, spawn } from 'node:child_process'
 import { readFile, readlink } from 'node:fs/promises'
@@ -164,7 +164,7 @@ async function findDsh() {
 }
 
 /** 重启的日志。进程是 detached 的，没有终端可回显；不落盘就等于失败无声。 */
-const RESTART_LOG = join(DSH_HOME, 'dsh-deepseek-vision-restart.log')
+const RESTART_LOG = join(DSH_HOME, 'dsh-design-qa-restart.log')
 
 /**
  * 列出另一个进程的环境变量**名**（不取值）。
@@ -410,27 +410,27 @@ async function relaunchWorker() {
 function mountPlugin(profile) {
   // 本包已作为 bundle 装进这个 profile 时，插件行由包内 cordis.patch.yml 提供。
   // 此时再往 profile 补丁层写一条同 id 的行，Loader 会在启动时抛
-  // `duplicate loader entry id: deepseek-vision`，**整个 profile 起不来**
+  // `duplicate loader entry id: design-qa`，**整个 profile 起不来**
   // （不是「后层覆盖前层」，两条都在；也与有没有 tsx 无关）。
   // 报错来自 cordis loader 内部，既不提插件名也不给修复方式，所以在这里挡住。
   const manifest = join(DSH_HOME, 'profiles', profile, 'package.json')
   if (existsSync(manifest)) {
     const bundles = JSON.parse(readFileSync(manifest, 'utf8'))?.dsh?.profile?.bundles ?? []
-    if (bundles.includes('dsh-deepseek-vision')) {
+    if (bundles.includes('dsh-design-qa')) {
       return '本包已作为 bundle 装在该 profile，跳过写入插件行（这正是 --route-only 要做的）'
     }
   }
   const patch = join(DSH_HOME, 'profiles', profile, 'cordis.patch.yml')
   const text = existsSync(patch) ? readFileSync(patch, 'utf8') : ''
-  if (text.includes('id: deepseek-vision')) return '已存在，跳过'
+  if (text.includes('id: design-qa')) return '已存在，跳过'
   backup(patch)
-  const entry = `# dsh-deepseek-vision —— 纯文本模型的图像能力。\n`
+  const entry = `# dsh-design-qa —— 纯文本模型的图像能力。\n`
     + `# 识图路由不在这里声明：补丁层的 config 是整体替换而非深合并，\n`
     + `# 在这里写 llm-pi-ai 会抹掉 settings.yaml 里已有的其它路由。\n`
     // 指构建产物而不是 src/index.ts：npm 发布的 dsh 入口是 `lib/bin.js`，plain node 跑，
     // **没有 tsx**（tsx 只在源码启动 `node --import tsx/esm` 时存在），加载 .ts 会直接失败。
     // lib/index.js 是入库的，两种形态下都在。
-    + `- insert:\n    - id: deepseek-vision\n      name: ${JSON.stringify(join(HERE, 'lib', 'index.js'))}\n`
+    + `- insert:\n    - id: design-qa\n      name: ${JSON.stringify(join(HERE, 'lib', 'index.js'))}\n`
     + `      config:\n        provider: bailian\n        model: qwen3.8-max\n`
   // 去掉注释与空行后只剩 `[]` 的话，必须**替换**而不是追加 ——
   // `[]` 后面再跟 `- item` 是非法 YAML，dsh 启动时直接 parse error。
@@ -486,7 +486,7 @@ function writeRoute() {
  * 比另存一份状态文件可靠：升级 DSH、重装依赖会覆盖掉被改的文件，标记随之消失，
  * 于是下次安装自然会重打。状态文件则会留下「以为打过、其实没有」的假象。
  */
-const MARK = 'DSH-DEEPSEEK-VISION-PATCH'
+const MARK = 'DSH-DESIGN-QA-PATCH'
 
 /** 还原命令，直接写进补丁注释里 —— 半年后读到这段代码的人不必去翻文档。 */
 const REVERT_HINT = `node ${join(HERE, 'install.mjs')} --revert-patches`
@@ -693,11 +693,11 @@ function planPatch(path, edits) {
  * 算出一个文件还原成什么样，**不写盘**。
  *
  * 关键是「当前这份确实是我们改过的」才还原。DSH 升级会把文件覆盖成新版，
- * 而 `.dsh-vision-orig` 还留着**升级前**的内容 —— 此时拷回去等于把 DSH 降级，
+ * 而 `.dsh-design-qa-orig` 还留着**升级前**的内容 —— 此时拷回去等于把 DSH 降级，
  * 且看起来是一次成功的还原。所以没有标记就只清掉这份过期备份。
  */
 function planRevert(path) {
-  const orig = `${path}.dsh-vision-orig`
+  const orig = `${path}.dsh-design-qa-orig`
   if (!existsSync(path)) return { path, status: 'gone' }
   const patched = readFileSync(path, 'utf8').includes(MARK)
   if (!existsSync(orig)) return { path, status: patched ? 'orig-missing' : 'clean' }
@@ -775,23 +775,23 @@ function patchBody(profile, { revert = false } = {}) {
   const written = []
   try {
     for (const plan of plans) {
-      if (plan.dropOrig === true) { rmSync(`${plan.path}.dsh-vision-orig`, { force: true }); continue }
-      if (plan.status === 'patch') writeFileSync(`${plan.path}.dsh-vision-orig`, plan.before, 'utf8')
+      if (plan.dropOrig === true) { rmSync(`${plan.path}.dsh-design-qa-orig`, { force: true }); continue }
+      if (plan.status === 'patch') writeFileSync(`${plan.path}.dsh-design-qa-orig`, plan.before, 'utf8')
       writeFileSync(plan.path, plan.after, 'utf8')
-      if (plan.status === 'revert') rmSync(`${plan.path}.dsh-vision-orig`, { force: true })
+      if (plan.status === 'revert') rmSync(`${plan.path}.dsh-design-qa-orig`, { force: true })
       written.push(plan)
     }
   } catch (error) {
     for (const plan of written.reverse()) {
       writeFileSync(plan.path, plan.before, 'utf8')
-      if (plan.status === 'patch') rmSync(`${plan.path}.dsh-vision-orig`, { force: true })
-      else writeFileSync(`${plan.path}.dsh-vision-orig`, plan.after, 'utf8')
+      if (plan.status === 'patch') rmSync(`${plan.path}.dsh-design-qa-orig`, { force: true })
+      else writeFileSync(`${plan.path}.dsh-design-qa-orig`, plan.after, 'utf8')
     }
     lines.push(`✗ 写盘失败，已回滚本轮所有改动：${error instanceof Error ? error.message : String(error)}`)
     return { lines, ok: false }
   }
   if (!revert && plans.some((plan) => plan.status === 'patch')) {
-    lines.push(`（原文均已另存为 <原文件名>.dsh-vision-orig，还原：node ${join(HERE, 'install.mjs')} --revert-patches）`)
+    lines.push(`（原文均已另存为 <原文件名>.dsh-design-qa-orig，还原：node ${join(HERE, 'install.mjs')} --revert-patches）`)
   }
   return { lines, ok }
 }
@@ -829,8 +829,8 @@ async function main() {
 
   console.log(bold('2/6 安装 skill'))
   mkdirSync(join(homedir(), '.agents', 'skills'), { recursive: true })
-  const skill = linkOrCopy(join(HERE, 'skills', 'deepseek-vision'), join(homedir(), '.agents', 'skills', 'deepseek-vision'))
-  console.log(`     ~/.agents/skills/deepseek-vision ${skill === 'link' ? '已软链' : '已复制 —— 注意：改包内那份不会同步，需重跑本脚本'}`)
+  const skill = linkOrCopy(join(HERE, 'skills', 'design-qa'), join(homedir(), '.agents', 'skills', 'design-qa'))
+  console.log(`     ~/.agents/skills/design-qa ${skill === 'link' ? '已软链' : '已复制 —— 注意：改包内那份不会同步，需重跑本脚本'}`)
 
   console.log(bold('3/6 写入识图路由'))
   console.log(`     ${writeRoute()}`)

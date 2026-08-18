@@ -1,9 +1,9 @@
 ---
-name: deepseek-vision
+name: design-qa
 description: 用 deepseek_vision 看图 —— 判定设计稿与前端实现的保真度、读取图上的具体数值、核对截图内容。当上下文里出现「[图片 …]」这样的文字指针，或需要比对设计稿与实现时使用。
 ---
 
-# deepseek-vision
+# design-qa
 
 `deepseek_vision` 把一张图交给外挂的多模态模型，只有回答的文字回来。图片**不进入你的上下文**，所以你看不到图 —— 你只能通过提问知道图上有什么。
 

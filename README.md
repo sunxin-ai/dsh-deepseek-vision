@@ -1,4 +1,4 @@
-# dsh-deepseek-vision
+# dsh-design-qa
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -31,13 +31,13 @@ macOS / Linux / Windows 通用，安装脚本是一份 Node 实现。
 ### 2. 装插件
 
 ```sh
-dsh plugin --profile web add github:sunxin-ai/dsh-deepseek-vision
+dsh plugin --profile web add github:sunxin-ai/dsh-design-qa
 ```
 
 ### 3. 补配套并重启
 
 ```sh
-cd "${DSH_HOME:-$HOME/.dsh}/profiles/web/node_modules/dsh-deepseek-vision"
+cd "${DSH_HOME:-$HOME/.dsh}/profiles/web/node_modules/dsh-design-qa"
 export BAILIAN_API_KEY=<第 1 步拿到的 key>
 node install.mjs --route-only
 node install.mjs --restart          # 冷启动。HMR 是关的，刷新浏览器不算
@@ -64,7 +64,7 @@ npm 装的和源码跑的都认。密钥也不经它的手，只写变量名 `ap
 | `dsh-host-apiproxy` | 删掉纯文本路由的图片准入拒绝（一个 `if` 块） |
 | `dsh-llm-deepseek` | 序列化前把图片块换成一行 `[图片 … attachment=<id>]` 文字指针，不再抛错 |
 
-改动前原文另存为 `<原文件名>.dsh-vision-orig`，一条命令还原：
+改动前原文另存为 `<原文件名>.dsh-design-qa-orig`，一条命令还原：
 
 ```sh
 node install.mjs --revert-patches
@@ -82,10 +82,10 @@ node install.mjs --revert-patches
 不想手敲的话，把下面这段整体发给 DSH，它有 bash，会自己跑完：
 
 ```text
-装 dsh-deepseek-vision，按这五步，不要自己发挥：
+装 dsh-design-qa，按这五步，不要自己发挥：
 
-1. dsh plugin --profile web add github:sunxin-ai/dsh-deepseek-vision
-2. cd "${DSH_HOME:-$HOME/.dsh}/profiles/web/node_modules/dsh-deepseek-vision"
+1. dsh plugin --profile web add github:sunxin-ai/dsh-design-qa
+2. cd "${DSH_HOME:-$HOME/.dsh}/profiles/web/node_modules/dsh-design-qa"
 3. export BAILIAN_API_KEY=<你的 key>      # 用 export，下一条命令也要用到它
 4. node install.mjs --route-only
 5. node install.mjs --restart      # 不要用 pkill，那会杀掉你自己
@@ -112,7 +112,7 @@ node install.mjs --revert-patches 可一键还原。把第 4 步的完整输出�
 
 ## 引擎为什么是 Qwen：它通过了基准测试
 
-不是随手挑的。[`eval/`](https://github.com/sunxin-ai/dsh-deepseek-vision/tree/main/eval)
+不是随手挑的。[`eval/`](https://github.com/sunxin-ai/dsh-design-qa/tree/main/eval)
 下有完整的基准规范与 4 组夹具（23 处缺陷），横评结论：
 
 | 模型 | 定向探针 | 难档（字重 800 vs 500） |
@@ -145,21 +145,21 @@ llm-pi-ai:
 
 ```yaml
 # 2) profile 的 cordis.patch.yml —— 覆盖插件行的 config
-- id: deepseek-vision
+- id: design-qa
   config:
     provider: my-vision
     model: your-model-id
 ```
 
 **注意这里不能写 `- insert:`。** 插件行已经由 bundle 层插好了，再 insert 一条同 id 的
-不是覆盖而是**并存**，DSH 启动时抛 `duplicate loader entry id: deepseek-vision`。
+不是覆盖而是**并存**，DSH 启动时抛 `duplicate loader entry id: design-qa`。
 上面这种「给出 `id` + 要改的字段」的写法才是按 id 覆盖。
 
 **唯一的硬性要求：那个模型必须真的支持多模态输入，且路由声明了 `input: [text, image]`。**
 这是「对端点的声明，不是对端点的检查」（上游 JSDoc 原话）——
 声明了但端点实际不收图，会在调用时被供应商拒绝，而不是在配置时报错。
 
-换模型后建议用 [`eval/`](https://github.com/sunxin-ai/dsh-deepseek-vision/tree/main/eval)
+换模型后建议用 [`eval/`](https://github.com/sunxin-ai/dsh-design-qa/tree/main/eval)
 重跑一遍基准（只在 GitHub 仓库里，不随包分发），尤其看难档与零差异对照那两项：
 **能看见 ≠ 可用**，一个召回高但幻觉多、或每次结论都漂移的模型会让判定循环发散。
 
@@ -188,7 +188,7 @@ llm-pi-ai:
 
 ## 提问方式决定成败
 
-以下是实测结论，不是风格偏好。完整版在 [`skills/deepseek-vision/SKILL.md`](skills/deepseek-vision/SKILL.md)。
+以下是实测结论，不是风格偏好。完整版在 [`skills/design-qa/SKILL.md`](skills/design-qa/SKILL.md)。
 
 | 提问形式 | 零差异对照的幻觉 | 难档缺陷召回 |
 |---|---|---|
@@ -264,7 +264,7 @@ node install.mjs [profile]         # 完整安装（不走 dsh plugin add 时用
 ### 用 `dsh plugin add` 装过之后，`--route-only` 不能省
 
 不加它会往 profile 的 `cordis.patch.yml` 再写一条同 id 的行，与 bundle 提供的那条撞车，
-DSH 启动时直接抛 `duplicate loader entry id: deepseek-vision`，**整个 profile 起不来** ——
+DSH 启动时直接抛 `duplicate loader entry id: design-qa`，**整个 profile 起不来** ——
 不是插件加载失败，是 dsh 根本启动不了。
 （脚本已内置防护：检测到本包已作为 bundle 装入就会跳过写入。）
 
@@ -289,7 +289,7 @@ node install.mjs --restart
   别的平台只拿得到用空格拼起来的命令行，参数里带空格时会切错 —— 此时用
   `DSH_RESTART_CMD` 显式给出完整命令。
 
-新进程的输出写到 `$DSH_HOME/dsh-deepseek-vision-restart.log`。
+新进程的输出写到 `$DSH_HOME/dsh-design-qa-restart.log`。
 
 **Windows** 上还需要显式给 `DSH_CWD`，否则读不到工作目录、会拒绝重启。
 
@@ -338,8 +338,8 @@ llm-pi-ai:
 
 ```sh
 node install.mjs --revert-patches                     # 1. 先还原本体补丁
-dsh plugin --profile web remove dsh-deepseek-vision   # 2. 插件行
-rm -rf ~/.agents/skills/deepseek-vision               # 3. skill 软链（Windows 上可能是复制的目录）
+dsh plugin --profile web remove dsh-design-qa   # 2. 插件行
+rm -rf ~/.agents/skills/design-qa               # 3. skill 软链（Windows 上可能是复制的目录）
 # 4. 从 $DSH_HOME/settings.yaml 里删掉 llm-pi-ai.providers.bailian 整段
 ```
 
@@ -355,7 +355,7 @@ rm -rf ~/.agents/skills/deepseek-vision               # 3. skill 软链（Window
   升级后即使备份文件还在，`--revert-patches` 也只会清掉那份过期备份、不会把新版文件覆盖回旧内容。
 - **按代码形态定位锚点，不按版本号。** 上游改写了那两处时，脚本会**报错并列出文件**，
   而不是打半个补丁。两种形态都会被改到（源码运行的 `src/*.ts`、npm 安装的 `lib/index.js`）——
-  无法可靠判断哪份是活的，宁可都改；源码仓库里因此会多出未跟踪的 `.dsh-vision-orig` 备份文件。
+  无法可靠判断哪份是活的，宁可都改；源码仓库里因此会多出未跟踪的 `.dsh-design-qa-orig` 备份文件。
 - **`attachment=<id>` 形式只在进程内有效**：id → 路径的索引是内存态，重启后失效，需改用文件路径。
 - **未覆盖多图对比**：`deepseek_vision` 一次只看一张图。设计稿与实现的并排对比图需调用方自己拼。
 - **私有文档的图取不到**：飞书、Notion 这类需要登录态的图片，直传 URL 会 401/403。
