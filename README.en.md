@@ -20,15 +20,15 @@ tool — the eye it needs to actually run a product-design loop.
 - **Looking is a tool, not a pipeline.** Images never enter the main model's context. It sees a
   one-line `[图片 …]` pointer and calls `deepseek_vision` when it decides it needs to. Not looking
   costs nothing; what to ask is the model's call.
-- **Ships with an evaluation and every raw output behind it.** Four fixtures, twenty-three
+- **Ships with an evaluation and the raw output behind it.** Four fixtures, twenty-three
   injected defects, four pass lines. It answers "is this borrowed eye fit to be the judge in the
   loop", not "did the model respond". **Seeing is not the same as being usable for judgement**:
   a model can see yet fail to look unprompted, fabricate, drift between runs, or report something
   you cannot act on — one pass line per failure mode. Ground truth is complete for all four
   fixtures and backed by pixel-level injection assertions; **the scoring scripts are currently
-  wired to `landing` only**. Every number below comes with its per-cell model transcript in
-  [`eval/runs/`](https://github.com/sunxin-ai/dsh-design-qa/tree/main/eval/runs), so you can
-  check the work yourself.
+  wired to `landing` only**. The benchmark numbers below each come with their per-cell model
+  transcript in [`eval/runs/`](https://github.com/sunxin-ai/dsh-design-qa/tree/main/eval/runs),
+  **which also marks the ones that have none**.
 
 ---
 
@@ -91,7 +91,7 @@ itself with no waterfall, so a plugin cannot change the adapters' hardcoded
 | Site | Change |
 |---|---|
 | `dsh-host-apiproxy` | Drop the image-admission refusal for text-only routes (one `if` block) |
-| `dsh-llm-deepseek` | Replace image blocks with a `[图片 … attachment=<id>]` text pointer just before serialization, instead of throwing |
+| `dsh-llm-deepseek` | At the image admission point, replace image blocks with a `[图片 … attachment=<id>]` text pointer instead of throwing; models that declare `image` keep the native path |
 | `dsh-llm-pi-ai` | Same — this one covers **every** OpenAI-compatible text-only endpoint you configure |
 
 The first two only make pasting work on DeepSeek routes; the third is what makes "**any** text-only
@@ -257,6 +257,16 @@ Measured, not a style preference. Full version in
 
 Same model, same images: **recall went from 0/2 to 2/2 with hallucinations at zero throughout.**
 Only the phrasing changed.
+
+> **Only the second row of this table can be checked.** The eval scripts implement exactly one of
+> these question forms — `FACETS` in `tilebench.py`, where all five facets end in "is there a
+> difference", which is that second row; its 0/30 has per-cell transcripts. The open-ended first row
+> roughly corresponds to `cmd_pairs` but was never scored separately, and **"which one is larger"
+> and "what is each one's value" have no code path at all** — no prompt constant, no command, no
+> output file, and nothing in the scripts produces a grid of 36 or 12.
+>
+> The table records work that was really done, but **trust the direction, discount the numbers**.
+> Details in [`eval/README.md`](eval/README.md).
 
 **Direction is trustworthy, magnitude is not**: true weights 800/500 read as 800/700; spacing 80/25
 reads as 72/38 — the measured side is always pulled toward the reference. Use it to decide *whether*

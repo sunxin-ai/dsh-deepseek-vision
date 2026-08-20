@@ -24,28 +24,33 @@ node install.mjs --no-patches ...    # 这次不打
 原逻辑在消息准入处直接拒绝，用户粘贴的图片连会话都进不去。移除后图片保留在持久消息里，
 界面照常显示一张图。
 
-## 二、`@deepseek-ai/dsh-llm-deepseek`：抛错换成文字指针
+## 二、`@deepseek-ai/dsh-llm-deepseek`：图片准入处抛错换成文字指针
 
-`assertTextOnly()` 换成 `replaceImagesWithPointers()`：图片块在序列化前的最后一刻变成一行
+改的是 `adapter.ts` 里 `if (hasImages)` 那一段的准入判断。模型没声明 `image` 时，原本抛
+`UNSUPPORTED_CONTENT`，现在把图片块换成一行
 
 ```
 [图片 image/png 2940x1912 attachment=sha256:…]（本模型看不到图片内容。…）
 ```
 
-调用点相应地从 `assertTextOnly(message.content)` 改成拷贝一份重写过的 message ——
-**拷贝而不是就地改**：那个数组属于会话里的持久消息对象，就地改会让界面与后续压缩看到的
-也变成文字，图就从气泡里消失了。
+**声明了 `image` 的模型走 else 分支，原生通路一个字节都不动。**
+
+改写的是 `options` 本身：它和后面 `this.request(options, …)` 用的是同一个变量，
+而 `attachments` 保持 `undefined`，于是自然走 `serializeRequest` 而不是
+`serializeRequestWithImages`。
 
 **为什么放在这一站**：这是消息通往 DeepSeek 的最后一步。此前每一站 —— 持久化、会话日志、
 界面渲染 —— 看到的都还是真正的图片块，所以**用户在气泡里看到的是一张图**，证据也完整留档。
-放在更早的位置（准入检查、`agent/pre-step`）替换，用户看到的就会变成一串路径而不是图。
-对照组是 Kimi K3 这类多模态路由：那边不做任何替换、界面正常显示缩略图 —— 说明问题出在替换的位置，不在界面。
 
-**补丁只打印附件 id，不推算任何文件路径。** 路径命名规则完整地留在插件一侧
-（`src/index.ts` 的 `spillPath`），由 `deepseek_vision` 按 id 解析。早期两边各写一份规则，
-改一边就静默失配（指针指向不存在的文件）；现在本体侧压根不知道有路径这回事。
+### 这处落点搬过家
 
-文件由插件在 `agent/pre-step` 落盘 —— 那一步**只落盘，不改动任何内容块**。
+DSH `0.1.0-rc.8` 之前，准入判断在 `serialize.ts` 的 `assertTextOnly()`，本插件 0.1.3 及
+更早打的就是那里。rc.8 引入原生图片通路后判断上移到 `adapter.ts`，序列化那处**再也够不着**
+（只有「消息里没有图片」时才会执行到，而那种情况它本来就不抛错）。
+
+`serialize.ts` 仍留在落点表里，但**只还原、不打补丁** —— 从表里删掉它会让升级上来的用户
+留下一个撤不掉的改动。安装时若发现那份文件还带着旧补丁，安装器会硬停并要求先
+`--revert-patches`。
 
 ## 三、`@deepseek-ai/dsh-llm-pi-ai`：同样把抛错换成文字指针
 

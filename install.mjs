@@ -542,80 +542,47 @@ const ADMISSION = {
 }
 
 /**
- * 落点二之一：`dsh-llm-deepseek` 的 `assertTextOnly()` 换成指针映射。
+ * 落点二：`dsh-llm-deepseek` 的图片准入拦截点。
  *
- * **为什么放在这一站**：这是消息通往 DeepSeek 的最后一步。此前每一站 —— 持久化、
- * 会话日志、界面渲染 —— 看到的都还是真正的图片块，所以用户在气泡里看到的是一张图，
- * 证据也完整留档。放在更早的位置替换，用户看到的就会变成一串路径而不是图。
+ * **rc.8 起它搬家了。** 更早的版本在 `serialize.ts` 的 `assertTextOnly()` 抛错，
+ * 本插件 0.1.3 及以前打的就是那里。rc.8 引入原生图片通路后，判断上移到了
+ * `adapter.ts`：模型没声明 image 就在序列化之前抛错，`serialize.ts` 那处再也够不着。
  *
- * 替换文本按形态分两份：TS 那份带完整类型标注，免得源码仓库跑 `npm run typecheck` 报错；
- * 构建产物那份是纯 JS。查找正则是同一条。
+ * 所以这里替换的是整个 `if (hasImages)` 里的准入段：不支持图片就把图片块换成文字指针，
+ * 支持的走 else 分支，**原生通路一个字节都不动**。
+ *
+ * 改写的是 `options` 本身 —— 它和后面 `this.request(options, …)` 用的是同一个变量，
+ * 且 `attachments` 保持 undefined，于是自然走 `serializeRequest` 而不是
+ * `serializeRequestWithImages`。指针在这一站才生成，此前每一站（持久化、会话日志、
+ * 界面渲染）看到的都还是真正的图片块，用户气泡里仍是一张图，证据完整留档。
  */
-const POINTER_FN = {
-  id: 'image-pointer/fn',
-  find: /^\/\*\* Reject core image content[\s\S]*?\n\}$/m,
-  build: (ts) => (ts ? [
-    '/**',
-    ` * ${MARK} (image-pointer)：图片内容不再抛错，而是在序列化前的最后一刻换成一行文字指针。`,
-    ' *',
-    ' * 为什么放在这里：这是消息通往 DeepSeek 的最后一站。此前每一站 —— 持久化、会话日志、',
-    ' * 界面渲染 —— 看到的都还是真正的图片块，所以用户在气泡里看到的仍是一张图，证据也完整留档。',
-    ' * 放在更早的位置（准入检查、agent/pre-step）替换掉图片块，用户会看到一串路径而不是图。',
-    ' *',
-    ' * 这里只打印附件 id，**不推算任何文件路径**：命名规则完整地留在插件一侧，由',
-    ' * deepseek_vision 按 id 解析 —— 两边各写一份路径规则的话，改一边就会静默失配。',
-    ' *',
-    ` * 还原：${REVERT_HINT}`,
-    ' */',
-    'function replaceImagesWithPointers(blocks: readonly ContentBlock[]): ContentBlock[] {',
-    '  if (!contentHasImage(blocks)) return [...blocks]',
-    '  return blocks.map((block) => {',
-    "    if (block.type !== 'image') return block",
-    '    const ref = block.attachment',
-    '    return {',
-    "      type: 'text' as const,",
-    '      text: `[图片 ${ref.mediaType} ${ref.width}x${ref.height} attachment=${ref.attachmentId}]`',
-    "        + '（本模型看不到图片内容。需要知道图上是什么，把这个 attachment= 值传给 deepseek_vision 工具。）',",
-    '    }',
-    '  })',
-    '}',
-  ] : [
-    '/**',
-    ` * ${MARK} (image-pointer)：图片内容不再抛错，而是换成一行 attachment= 文字指针。`,
-    ' * 与 dsh-host-apiproxy 的 image-admission 补丁成对，须同时存在或同时还原。',
-    ` * 还原：${REVERT_HINT}`,
-    ' */',
-    'function replaceImagesWithPointers(blocks) {',
-    '\tif (!contentHasImage(blocks)) return [...blocks];',
-    '\treturn blocks.map((block) => {',
-    '\t\tif (block.type !== "image") return block;',
-    '\t\tconst ref = block.attachment;',
-    '\t\treturn {',
-    '\t\t\ttype: "text",',
-    '\t\t\ttext: `[图片 ${ref.mediaType} ${ref.width}x${ref.height} attachment=${ref.attachmentId}]` + "（本模型看不到图片内容。需要知道图上是什么，把这个 attachment= 值传给 deepseek_vision 工具。）"',
-    '\t\t};',
-    '\t});',
-    '}',
-  ]).join('\n'),
-}
-
-/**
- * 落点二之二：调用点。原为 `assertTextOnly(message.content)` 直接抛错。
- *
- * 改成**拷贝**而不是就地改写 `message.content`：那个数组属于会话里的持久消息对象，
- * 就地改会让界面与后续压缩看到的也变成文字，图就从气泡里消失了。
- */
-const POINTER_CALL = {
-  id: 'image-pointer/call',
-  find: /for \(const message of messages\) \{([ \t]*\n[ \t]*)assertTextOnly\(message\.content\);?/,
-  // 缩进从捕获组取，换行显式拼 —— 不依赖捕获组里恰好含换行。少了换行，
-  // 后面那句 `//` 注释会把整行吞掉。
+const DS_POINTER = {
+  id: 'deepseek-image-pointer',
+  // 两种形态同一条正则：TS 有 `const model = …` 单独一行，构建产物把它内联进了 if。
+  // 结尾兼容 TS 的多行 `)\n}` 与构建产物的单行 `);`。
+  find: /^([ \t]*)(?:const model = connection\.models[^\n]*\n[ \t]*)?if \([^\n]*inputModalities\?\.includes\(["']image["']\) !== true\)[\s\S]*?durable attachment service[\s\S]*?UNSUPPORTED_CONTENT["'](?:\);|,?\s*\)\s*\})/m,
   build: (ts, match) => {
-    const indent = /\n([ \t]*)$/.exec(match[1])?.[1] ?? (ts ? '    ' : '\t\t')
+    const pad = match[1]
+    const q = ts ? "'" : '"'
+    const undef = ts ? 'undefined' : 'void 0'
+    const semi = ts ? '' : ';'
     return [
-      'for (const original of messages) {',
-      `${indent}// ${MARK}：原为 assertTextOnly(message.content) 直接抛错。`,
-      `${indent}const message = { ...original, content: replaceImagesWithPointers(original.content) }${ts ? '' : ';'}`,
+      pad + '// ' + MARK + ' (deepseek-image-pointer)',
+      pad + '// 原处：模型未声明 image 就抛 UNSUPPORTED_CONTENT。rc.8 起这里是图片准入的实际拦截点。',
+      pad + '// 改成把图片块换成一行 attachment= 文字指针，模型据此调用 deepseek_vision 工具。',
+      pad + '// 声明了 image 的模型走 else 分支，原生通路完全不受影响。',
+      pad + '// 与 dsh-host-apiproxy 的 image-admission 补丁成对，须同时存在或同时还原。',
+      pad + '// 还原：' + REVERT_HINT,
+      pad + 'if (connection.models.find((entry) => entry.id === options.model)?.inputModalities?.includes(' + q + 'image' + q + ') !== true) {',
+      pad + '  options = { ...options, messages: options.messages.map((message) => ({ ...message,',
+      pad + '    content: message.content.map((block) => block.type !== ' + q + 'image' + q + ' ? block',
+      pad + '      : ({ type: ' + q + 'text' + q + (ts ? ' as const' : '') + ', text: ' + '`[图片 ${block.attachment.mediaType} ${block.attachment.width}x${block.attachment.height} attachment=${block.attachment.attachmentId}]（本模型看不到图片内容。需要知道图上是什么，把这个 attachment= 值传给 deepseek_vision 工具。）`' + ' })) })) }' + semi,
+      pad + '} else {',
+      pad + '  attachments = this.config.resolveAttachments?.()' + semi,
+      pad + '  if (attachments === ' + undef + ') {',
+      pad + '    throw new LlmError(' + q + 'DeepSeek image conversion requires the durable attachment service.' + q + ', ' + q + 'UNSUPPORTED_CONTENT' + q + ')' + semi,
+      pad + '  }',
+      pad + '}',
     ].join('\n')
   },
 }
@@ -710,12 +677,22 @@ const PATCH_TARGETS = [
   {
     pkg: '@deepseek-ai/dsh-llm-deepseek',
     repoDir: 'packages/llm/llm-deepseek',
-    forms: { ts: 'src/serialize.ts', js: 'lib/index.js' },
-    // 能力声明写在 adapter 里，补丁打在 serialize 里 —— 探测路径与 forms 不是同一组文件。
+    // rc.8 起准入判断在 adapter.ts，补丁与能力声明落在同一个文件里。
     // 另外两处不设退休判据：`api-proxy` 的门禁对所有路由通用，只要还存在纯文本路由就需要；
     // `llm-pi-ai` 那处本就按 `model.input` 动态放行，能看图的端点自然走原生通路。
+    forms: { ts: 'src/adapter.ts', js: 'lib/index.js' },
     nativeVision: ['src/adapter.ts', 'lib/index.js'],
-    edits: [POINTER_FN, POINTER_CALL],
+    edits: [DS_POINTER],
+  },
+  {
+    // **只还原，不打补丁。** 0.1.3 及更早把补丁打在 serialize.ts 的 assertTextOnly 上；
+    // rc.8 把准入判断上移到 adapter.ts 之后那处彻底失效（只有「消息里没有图片」时才会
+    // 走到，而那种情况它本来就不抛错）。从落点表里删掉它会留下一个撤不掉的改动 ——
+    // 升级上来的用户那份 serialize.ts 仍是改过的，`--revert-patches` 认不出就永远清不掉。
+    pkg: '@deepseek-ai/dsh-llm-deepseek',
+    repoDir: 'packages/llm/llm-deepseek',
+    forms: { ts: 'src/serialize.ts' },
+    revertOnly: true,
   },
   {
     pkg: '@deepseek-ai/dsh-llm-pi-ai',
@@ -777,7 +754,8 @@ function dshBinBases() {
 
 /** 一个包下所有需要改的文件。两种形态都存在就都改 —— 无法可靠判断哪份是活的，半打状态正是要消灭的失败模式。 */
 function formFiles(root, forms) {
-  return [forms.ts, forms.js].map((rel) => join(root, rel)).filter((path) => existsSync(path))
+  // 只还原的落点可能只给了 ts 一种形态，先滤掉未定义的再拼路径。
+  return [forms.ts, forms.js].filter((rel) => rel !== undefined).map((rel) => join(root, rel)).filter((path) => existsSync(path))
 }
 
 /**
@@ -855,6 +833,22 @@ function patchBody(profile, { revert = false, dryRun = false } = {}) {
     }
     let seen = 0
     for (const root of roots) {
+      // 只还原不打补丁的落点：打补丁时必须查一眼，查到残留就硬停。
+      // 那份 serialize.ts 若还带着旧补丁，说明用户是从 0.1.3 及更早升上来的 ——
+      // 此时新旧两处会同时生效（旧的虽已失效，但 lib/index.js 的标记会让新补丁被判成
+      // 「已打过」而跳过），必须先还原干净再装。
+      if (target.revertOnly === true && !revert) {
+        for (const file of formFiles(root, target.forms)) {
+          if (!isPatched(readFileSync(file, 'utf8'))) continue
+          ok = false
+          lines.push(`✗ ${file} 仍带着旧版本的补丁（0.1.3 及更早打在这里）。`)
+          lines.push('  rc.8 起该处已失效，新补丁改打 adapter.ts。请先还原再装：')
+          lines.push(`    node ${join(HERE, 'install.mjs')} --revert-patches`)
+        }
+        seen += 1
+        continue
+      }
+
       // 上游自己支持图片了就别再打 —— 打上去反而会把它能看见的图换成文字指针。
       // **逐份判断**：机器上可能有多份 DSH，新的那份退休了不代表旧的那份也该跳过。
       // 还原路径不看这个判据：已经打过的补丁，无论上游变成什么样都必须能撤掉。

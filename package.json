@@ -1,6 +1,6 @@
 {
   "name": "dsh-design-qa",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "让 DeepSeek Harness 里任何纯文本模型都能读图。识图是按需调用的 tool —— 图片不进主模型上下文，不看就不花钱；附 23 处缺陷的评测集，换模型可自测。",
   "type": "module",
   "license": "MIT",
